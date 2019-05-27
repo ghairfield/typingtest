@@ -1,14 +1,18 @@
 /**
- * Written by Greg Hairfield
+ * Greg Hairfield
  * A speed typing test. 
+ * May 6, 2019
  */
-#include <stdio.h>
+/*
 #include <string.h>
+#include <sys/ioctl.h>
+*/
+#include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <termios.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
 #include <unistd.h>
+#include <time.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Global def's
@@ -19,212 +23,180 @@ enum KEYMAP {
   CR     = 13,  // Enter
   CTRL_Q = 17,  // Quit
   ESC    = 27,  // Escape 
-  DEL    = 127  // Delete 
+  DEL    = 127, // Delete 
+  EXIT   = 0    // Exit the program gracefuly.
 };
 
-struct Row
-{
-  char* str;  // str = contents of the row
-  int num;    // num = current line number
+enum COLORS {
+  NORMAL = 0,
+  GOOD,
+  WARN,
+  CRISIS,
+  BAD_INPUT,
+  COMPLETE
 };
 
-struct Screen 
-{
-  int szx, szy;     // Size of screen
-  char* sl;         // Status line
-  struct Row* rows; // y - STATUS_LINE_SIZE
-  int curx;         // Position of the cursor on the status line
-};
+#define true 1
+#define false 0
+#define ttyin STDIN_FILENO
+#define ttyout STDOUT_FILENO
+#define MAXWORDSIZE 25
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Global's
+ * Helpers
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-static struct Screen scr;
-static const int ttyfd = STDIN_FILENO;
-static const int STATUS_LINE_SIZE = 1;
+
+void setColor(enum COLORS c)
+{
+  switch (c) {
+    case NORMAL:
+      write(ttyout, "\033[37;40m", 8);
+      break;
+    case GOOD:
+      write(ttyout, "\033[32;40m", 8);
+      break;
+    case WARN:
+      write(ttyout, "\033[33;40m", 8);
+      break;
+    case CRISIS:
+      write(ttyout, "\033[31;40m", 8);
+      break;
+    case BAD_INPUT:
+      write(ttyout, "\033[30;41m", 8);
+      break;
+    case COMPLETE:
+      write(ttyout, "\033[1;40m", 7);
+      break;
+  };
+}
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * IO stuff
+ * Input handling
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-int readChar()
+/* We ignore most input that doesn't apply to this program. */
+char getInput()
 {
-  int c;
-  int count = read(ttyfd, &c, 1); 
-  if (count < 0) return -1;
-  if (count == 0) return 0;
+  char c_in;
+  int bytes;
+
+  bytes = read(ttyin, &c_in, 1);
+  if (bytes == -1) return EXIT; // Failure
+
+  if (c_in == CTRL_C || c_in == CTRL_Q) return EXIT; // User quit
+
+  if (c_in == DEL || c_in == BACK) return DEL; // Backspace
+
+  return c_in; // Regular character
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * Game
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Assumes set up has been done and all is checked. */
+int run()
+{
+  char c;
+  int index = 0;
+  char word[] = { "something" };
+
+  while (1) {
+    c = getInput();
+
+    switch (c) {
+      case EXIT:
+        return 0;
+        break;
+      case DEL:
+        write(ttyout, "\033[D", 3);
+        c = ' ';
+        write(ttyout, &c, 1);
+        write(ttyout, "\033[D", 3);
+        (index <= 0) ? index = 0 : --index;
+        break;
+      case CR:
+        // TODO: Verify word
+        write(ttyout, "\033[1000D", 7);
+        write(ttyout, "\33[K", 3);
+        index = 0;
+        break;
+      default:
+        if (c == word[index]) {
+          setColor(GOOD);
+          write(ttyout, &c, 1);
+          setColor(NORMAL);
+        }
+        else {
+          setColor(BAD_INPUT);
+          write(ttyout, &c, 1);
+          setColor(NORMAL);
+        }
+        ++index;
+    }; 
+  }
+
   return c;
 }
 
-// Write the game words to the screen
-void writeScreen()
-{
-  write(STDIN_FILENO, "\x1b[H", 3);
-  for (int a = 0; a < scr.szy - STATUS_LINE_SIZE; ++a) {
-    write(STDIN_FILENO, scr.rows[a].str, scr.szx);      
-  }
-
-  write(STDIN_FILENO, scr.sl, scr.szx);
-}
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Game stuff.
+ * Setup
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-int run()
+struct termios orig_term;
+
+void clean_up()
 {
-  float speed = 1.0;
-  struct timeval start;
-  gettimeofday(&start, NULL);
-  int running = 1;
-  int ch;
+  /* Flush the terminal upon exit, and reset the original terminal settings. */
+  tcsetattr(ttyin, TCSAFLUSH, &orig_term);
+}
 
-  while (running) {
-    ch = readChar();
-  
-    switch (ch) {
-      case CTRL_C:
-      case CTRL_Q: running = 0; break; // Quit the game
-      case CR: // Enter the string in the status line
-      case ESC: break; // Currently not handling Escape
-      case BACK:
-      case DEL: if (scr.curx > 0) scr.sl[--scr.curx] = ' '; break;
-      default:
-        scr.sl[scr.curx++] = ch; 
-    };
+void raw_mode()
+{
+  /*
+   * We can turn on raw mode with
+   *      int cfmakeraw(struct termios *termios-p)
+   * is equal to
+   *  termios-p->c_iflag &= ~(IGNBRK | BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
+   *  termios-p->coiflag &= ~OPOST;
+   *  termios-p->c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
+   *  termios-p->c_cflag &= ~(CSIZE|PARENB);
+   *  termios-p->c_flag |= CS8;
+   */
 
-    writeScreen();
+  if ( !isatty(ttyin)) {
+    fprintf(stderr, "This is not a tty.\n");
+    exit(EXIT_FAILURE);
   }
+  // Copy the original terminal settings so they can be set upon exit
+  tcgetattr(ttyin, &orig_term); 
+  atexit(clean_up); // declared in stdlib.h       
 
-  return 0;
+  struct termios term = orig_term;
+  /* Trun off break (enter CBREAK)
+   * Trun off CR to NL
+   * Turn off parity check
+   * Turn off strip char (8 bit characters)
+   */
+  term.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | ISIG);
+  /* Turn off echo, automattically writing to screen.
+   * Turn off canonical mode. Read bytes instead of lines. 
+   * Turn off Ctrl-Q and Ctrl-S, legacy terminal modes. */
+  term.c_lflag &= ~(ECHO | ICANON | IXON); 
+  /* Do not ost process NL to CR+NL */
+  term.c_oflag &= ~(OPOST);  
+  /*
+   * Minimum bytes to read is 1, and no timer.
+   */
+  term.c_cc[VMIN] = 1;
+  term.c_cc[VTIME] = 0;
+  tcsetattr(ttyin, TCSAFLUSH, &term);
 }
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Setup stuff.
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-/*  Code for turning on raw mode. Not mine, taken from 
- *  http://www.cs.uleth.ca/~holzmann/C/system/ttyraw.c
- */
-static struct termios orig_termios;
-
-/* put terminal in raw mode - see termio(7I) for modes */
-int tty_raw(void)
-{
-  if ( !isatty(ttyfd)) return -1;
-
-  struct termios raw;
-  raw = orig_termios;  /* copy original and then modify below */
-  if (tcgetattr(ttyfd,&orig_termios) < 0) {
-    fprintf(stderr, "Could not get original terminal info.\n");
-    return -1;
-  }
-
-  /* input modes - clear indicated ones giving: no break, no CR to NL, 
-   no parity check, no strip char, no start/stop output (sic) control */
-  raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-
-  /* output modes - clear giving: no post processing such as NL to CR+NL */
-  raw.c_oflag &= ~(OPOST);
-
-  /* control modes - set 8 bit chars */
-  raw.c_cflag |= (CS8);
-
-  /* local modes - clear giving: echoing off, canonical off (no erase with 
-     backspace, ^U,...),  no extended functions, no signal chars (^Z,^C) */
-  raw.c_lflag &= ~(ECHO | ICANON | IEXTEN); // | ISIG);
-
-  /* control chars - set return condition: min number of bytes and timer */
-  raw.c_cc[VMIN] = 0; raw.c_cc[VTIME] = 1;   /* After .1 set */
-
-  /* put terminal in raw mode after flushing */
-  if (tcsetattr(ttyfd,TCSAFLUSH,&raw) < 0) {
-    fprintf(stderr, "can't set raw mode");
-    return -1;
-  }
-
-  return 0;
-}
-int tty_reset(void)
-{
-  /* flush and reset */
-  if (tcsetattr(ttyfd,TCSAFLUSH,&orig_termios) < 0) return -1;
-  return 0;
-}
-/* exit handler for tty reset */
-void tty_atexit(void)  /* NOTE: If the program terminates due to a signal   */
-{                      /* this code will not run.  This is for exit()'s     */
-   tty_reset();        /* only.  For resetting the terminal after a signal, */
-}                      /* a signal handler which calls tty_reset is needed. */
-
-/* reset tty - useful also for restoring the terminal when this process
-   wishes to temporarily relinquish the tty
-
- * 
- * End of copy pasta 
- */
-
-
-int getWinSize()
-{
-  struct winsize w;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) < 0) {
-    fprintf(stderr, "Could not get terminal size.\n");
-    return -1;
-  } 
-  scr.szy = w.ws_row;
-  scr.szx = w.ws_col;
-
-  return 0;
-}
-
-int init_screen()
-{
-  if (getWinSize() == -1) return -1;
-  scr.rows = malloc(scr.szy * sizeof(struct Row));
-  if ( !scr.rows) return -1;
-
-  for (int a = 0; a < scr.szy - STATUS_LINE_SIZE; ++a) {
-    scr.rows[a].str = malloc(scr.szx * sizeof(char));
-    if ( !scr.rows[a].str) {
-      // TODO: Should clean up what was created.
-      return -1;
-    }
-    memset(scr.rows[a].str, ' ', scr.szx);
-    scr.rows[a].num = a + 1;
-  }
-
-  scr.sl = malloc(scr.szx * sizeof(char));
-  if ( !scr.sl) return -1;
-  memset(scr.sl, ' ', scr.szx);
-
-  sprintf(scr.sl, "Test your typing skills. ^Q or ^C to exit.");
-  return tty_raw();
-}
-
-void destroy()
-{
-  for (int a = 0; a < scr.szy; ++a) free(scr.rows[a].str);
-  free(scr.rows);
-}
-
-int init()
-{
-  if (init_screen() == -1) return -1;
-  if (tty_raw() == -1) {
-    fprintf(stderr, "Could not set raw mode.\n");
-    return -1;
-  }
-  return 0;
-}
 
 int main()
 {
-  if (init() == -1) goto FAIL;
+  raw_mode();
 
   run();
 
-  tty_reset();
-  destroy();
   return 0;
-FAIL:
-  return -1;
 }

@@ -1,3 +1,10 @@
+CC=cc -Wall -Wextra -g
 
-spdtst : src/speedtest.c
-	cc -Wall -Wextra -g src/speedtest.c -o spdtst
+#spd : src/speedtest.c
+#	$(CC) src/speedtest.c -o spdtst
+
+practice : src/speedtest.c
+	$(CC) src/speedtest.c -o spd
+
+run : 
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./spd
