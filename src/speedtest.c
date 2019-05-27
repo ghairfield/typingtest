@@ -8,11 +8,12 @@
 #include <sys/ioctl.h>
 */
 #include <stdio.h>
-#include <ctype.h>
+//#include <ctype.h>
 #include <stdlib.h>
 #include <termios.h>
 #include <unistd.h>
 #include <time.h>
+#include <string.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Global def's
@@ -40,7 +41,17 @@ enum COLORS {
 #define false 0
 #define ttyin STDIN_FILENO
 #define ttyout STDOUT_FILENO
-#define MAXWORDSIZE 25
+
+struct Player
+{
+  int correct;
+  int error; 
+  double score;
+  clock_t start; 
+} player;
+
+char* words = NULL;
+const int MAX_WORDS = 300;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Helpers
@@ -96,8 +107,21 @@ char getInput()
 /* Assumes set up has been done and all is checked. */
 int run()
 {
+  // Initilize the user info
+  player.correct = 0;
+  player.error   = 0;
+  player.score   = 0;
+  player.start   = clock();
+
+  /* Where are we????
+   *
+   * The single word display is working well, and I think it is bug free.
+   * Next up, displaying words. First we should just display them on the
+   * line above. Then we need to get a bigger list of words. Then move on
+   * to the display moving. 
+   */
   char c;
-  int index = 0;
+  int wordindex = 0;
   char word[] = { "something" };
 
   while (1) {
@@ -112,16 +136,16 @@ int run()
         c = ' ';
         write(ttyout, &c, 1);
         write(ttyout, "\033[D", 3);
-        (index <= 0) ? index = 0 : --index;
+        (wordindex <= 0) ? wordindex = 0 : --wordindex;
         break;
       case CR:
         // TODO: Verify word
         write(ttyout, "\033[1000D", 7);
         write(ttyout, "\33[K", 3);
-        index = 0;
+        wordindex = 0;
         break;
       default:
-        if (c == word[index]) {
+        if (c == word[wordindex]) {
           setColor(GOOD);
           write(ttyout, &c, 1);
           setColor(NORMAL);
@@ -131,7 +155,7 @@ int run()
           write(ttyout, &c, 1);
           setColor(NORMAL);
         }
-        ++index;
+        ++wordindex;
     }; 
   }
 
@@ -147,6 +171,8 @@ void clean_up()
 {
   /* Flush the terminal upon exit, and reset the original terminal settings. */
   tcsetattr(ttyin, TCSAFLUSH, &orig_term);
+
+  if (words) free(words);
 }
 
 void raw_mode()
@@ -191,10 +217,33 @@ void raw_mode()
   tcsetattr(ttyin, TCSAFLUSH, &term);
 }
 
+int read_file()
+{
+  FILE* f = fopen("data/11-0.txt", "r");
+  if ( !f) return -1;
+
+  int num_char = (7 * MAX_WORDS); // Assume on average each word is 7 letters
+  words = malloc(num_char * sizeof(char));
+  if ( !words) return -1;
+
+  memset(words, '\0', num_char);
+
+  int c;
+  int count = 0;
+  int index = 0;
+  while ((c = fgetc(f)) != EOF && count < MAX_WORDS && index < num_char - 1) {
+    if ((char)c == ' ') ++count;
+    words[index++] = c;
+  }
+
+  fclose(f);
+  return 0;
+}
 
 int main()
 {
-  raw_mode();
+  if (raw_mode() == -1) return -1;
+  if (read_file() == -1) return -1;
 
   run();
 
