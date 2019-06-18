@@ -8,13 +8,10 @@ struct Word
 };
 
 struct Word* words = NULL;
-//struct Line** lines = NULL;
 
 void copy_word(char* l, int start, char* word, int size)
 {
-  for (int i = 0; i < size; ++i) {
-    l[start + i] = word[i];
-  }
+  for (int i = 0; i < size; ++i) l[start + i] = word[i];
 }
 
 struct Word* write_line(struct Line* l, struct Word* start, int cols)
@@ -25,7 +22,7 @@ struct Word* write_line(struct Line* l, struct Word* start, int cols)
     return NULL;
   }
 
-  ++cols; // Make room for NULL
+  ++cols; // Make room for null. ?? Maybe get ride of. 
   l->ln = malloc(cols * sizeof(char));
   if ( !l->ln) {
     fprintf(stderr, "%s:%d - Could not allocate memory.\n", __FILE__, __LINE__);
@@ -38,28 +35,23 @@ struct Word* write_line(struct Line* l, struct Word* start, int cols)
   struct Word* end = start;
   int count    = 0; // words
   int size     = 0; // size of words
-  while (size + count < cols && tmp) {
+  while (tmp && size + tmp->size < cols) {
     ++count;
-    size += tmp->size;
+    size += tmp->size + 1;
     end  =  tmp;
     tmp  =  tmp->next;
   }
 
-  // Previous is the end of the words we are copying
-  --count;
-  size -= end->size;
   tmp  =  start;
   int index = 0;
   while (tmp != end) {
     // Copy the word, add a space
-    printf("Index: %d - Temp Word: %s\n\tString: %s\n\n", index, tmp->w, l->ln);
     copy_word(l->ln, index, tmp->w, tmp->size);
-    //strcat(&(l->ln[index]), tmp->w);
     index += tmp->size;    
     tmp = tmp->next;
     copy_word(l->ln, index++, " ", 1);
   }
-  strcpy(&(l->ln[index]), end->w);
+  copy_word(l->ln, index, end->w, end->size);
   
   return end;
 } 
@@ -109,12 +101,11 @@ void destroy_words()
   }
 }
 
-void destroy_lines(struct Line*** lines, int size)
+void destroy_lines(struct Line** lines, int size)
 {
-  struct Line** l = *lines;
   for(int i = 0; i < size; ++i) {
-    free (l[i]->ln);
-    free (l[i]);  
+    free(lines[i]->ln);
+    free(lines[i]);  
   }
 }
 
@@ -170,21 +161,26 @@ void print_words_()
   } 
 }
 
-int read_file(const char* fname, struct Line*** line, int size, int cols)
+int read_file(const char* fname, struct Line** line, int size, int cols)
 {
-  struct Line** l = *line;
   if (read_file_(fname) != 0) return -1;
   struct Word* w = words;
   int i = 0;
 
   for (i = 0; i < size; ++i) {
-    l[i] = malloc(sizeof(struct Line));
-    if (!l[i]) {
+    line[i] = malloc(sizeof(struct Line));
+    if ( !line[i]) {
       fprintf(stderr, "%s:%d - Could not create a line.\n", __FILE__, __LINE__);
       return -1;
     }
-    w = write_line(l[i], w, cols);
-    if (w == NULL) return i;
+
+    w = write_line(line[i], w, cols);
+    if (w == NULL) {
+      free(line[i]);
+      line[i] = NULL;
+      destroy_words();
+      return i;
+    }
     w = w->next;
   }
 

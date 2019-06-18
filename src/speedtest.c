@@ -357,18 +357,19 @@ int main()
   struct Line** lines;
   int size = 100;
   lines = malloc(size * sizeof(struct Line *));
-  for (int i = 0; i < size; ++i)
-    lines[i] = NULL;
-
+  memset(lines, '\0', size);
   int cols = 80;
-  int ln = read_file("data/test.txt", &lines, size, cols);
+  int ln = read_file("data/test.txt", lines, size, cols);
   if (ln < 0) exit(EXIT_FAILURE);
   for (int i = 0; i < ln; ++i)
     printf("%s\n", lines[i]->ln);
-  printf("We got %d lines back.\n", ln);
 
-  destroy_lines(&lines, ln);
+  destroy_lines(lines, ln);
   free(lines);
 
+  // Close all file descripters for valgrind error summary.
+  fclose(stdin);
+  fclose(stdout);
+  fclose(stderr);
   return 0;
 } 

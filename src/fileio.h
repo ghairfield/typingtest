@@ -37,7 +37,7 @@ read or number of lines equals size.
 
 @returns < 0 if an error occured, or the number of lines created.
 */
-int read_file(const char* fname, struct Line*** line, int size, int cols);
+int read_file(const char* fname, struct Line** line, int size, int cols);
 
 /**
 Deletes the memory allocated for the lines.
@@ -48,4 +48,4 @@ Deletes the memory allocated for the lines.
 @param lines A pointer to the lines
 @param size Size of lines
 */
-void destroy_lines(struct Line*** lines, int size);
+void destroy_lines(struct Line** lines, int size);
