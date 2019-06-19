@@ -12,6 +12,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <time.h>
+#include <stdbool.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Global def's
@@ -35,22 +36,70 @@ enum COLORS {
   COMPLETE
 };
 
-#define true 1
-#define false 0
 #define ttyin STDIN_FILENO
 #define ttyout STDOUT_FILENO
 
-struct Display
+// Basic cursor movements
+const char* CUR_HOME  = "\033[H";
+const char* CUR_LEFT  = "\033[%dD";
+const char* CUR_RIGHT = "\033[%dC";
+const char* CUR_UP    = "\033[%dA";
+const char* CUR_DOWN  = "\033[%dB";
+// Single movements
+const char* CUR_CLEAR     = "\033[2J";
+const char* CUR_LEFT_ONE  = "\033[D";
+const char* CUR_RIGHT_ONE = "\033[C";
+const char* CUR_UP_ONE    = "\033[A";
+const char* CUR_DOWN_ONE  = "\033[B";
+char* cur_string;
+const int cur_string_sz = 40;
+
+const float game_width_factor  = 0.80f;
+const float game_height_factor = 0.80f;
+const int   max_lines          = 1000;
+const int   line_spacing       = 2;
+const char* game_settings[] = { \
+    "Game Settings -",    \
+    "Columns      : %d",  \
+    "Rows         : %d",  \
+    "Game Board Size  ",  \
+    "        Cols : %d",  \
+    "        Rows : %d",  \
+    "Game Cols        ",  \
+    "     Start   : %d",  \
+    "     End     : %d",  \
+    "Game Rows        ",  \
+    "     Start   : %d",  \
+    "     End     : %d",  \
+    "Game Speed   : %.2f",\
+    NULL };
+
+struct Game
 {
-  int cols;
-  int rows;
-} d;
+  int tot_cols;   /**< Total columns */
+  int tot_rows;   /**< Total rows */
+  int sz_cols;  /**< Size of game columns window */
+  int sz_rows;
+  int st_cols;
+  int end_cols;
+  int st_rows;
+  int end_rows;
+
+  struct Line** ln;
+  int lsz;          /**< total lines that exist in ln */
+  int lri;          /**< line row index */
+  int lci;          /**< line column index  */
+
+  char* fn;         /**< Current file name */
+} g;
 
 struct Player
 {
+  char** input;
+  int row, col;
+
   int correct;
   int error; 
-  int x, y;
   double score;
   clock_t start; 
 } p;
@@ -58,6 +107,10 @@ struct Player
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Helpers
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+void clear_cursor_string()
+{
+  memset(cur_string, '\0', cur_string_sz);
+}
 
 void setColor(enum COLORS c)
 {
@@ -83,11 +136,79 @@ void setColor(enum COLORS c)
   };
 }
 
-void moveTo(int y, int x)
+void scbp(int x, int y)
 {
-  char pos[20] = { '\0' };
-  sprintf(pos, "\033[%d;%dH", y, x);
-  write(ttyout, pos, strlen(pos));
+  assert(x >= 0 && y >= 0);
+
+  write(ttyout, CUR_HOME, strlen(CUR_HOME));
+  sprintf(cur_string, CUR_DOWN, y + g.st_rows);
+  write(ttyout, cur_string, strlen(cur_string)); 
+  clear_cursor_string();
+  sprintf(cur_string, CUR_RIGHT, x + g.st_cols);
+  write(ttyout, cur_string, strlen(cur_string)); 
+  clear_cursor_string();
+}
+
+void display_game_settings()
+{
+  int startx = 0;
+  int starty = 0;
+  char string[100] = { '\0' };
+
+  // Move cursor to starting position
+  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR)); 
+  // Write first line
+  scbp(startx, starty++);
+  write(ttyout, game_settings[0], strlen(game_settings[0]));
+  startx += 6;
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[1], g.tot_cols);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[2], g.tot_rows);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[3]);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[4], g.sz_cols);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[5], g.sz_rows);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[6]);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[7], g.st_cols);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[8], g.end_cols);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[9]);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[10], g.st_rows);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[11], g.end_rows);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty);
+  sprintf(cur_string, game_settings[12], 1.23f);
+  write(ttyout, cur_string, strlen(string)); 
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -113,36 +234,32 @@ char getInput()
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Game
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-int screen()
+
+void display_lines()
 {
-  // TODO: Need to create the loop to use a line instread of letters.
-  write(ttyout, "\033[2J", 4); // Clear the screen, move home.
-  write(ttyout, "\033[H", 3);  
-  for (int y = 0; y < d.rows - 1; ++y) {
-    for (int x = 0; x < d.cols; ++x) 
-      //write(ttyout, , 1);
+  if ( !g.ln) return;
 
-    write(ttyout, "\033[B", 3);
-    write(ttyout, "\033[1000D", 7);
+  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR));
+
+  int starty = 0;
+  int startl = g.lri;
+
+  scbp(0, 0);
+  while (starty + g.st_rows < g.end_rows && startl < g.lsz) {
+    write(ttyout, g.ln[startl]->ln, g.ln[startl]->sz);  
+    starty += line_spacing;
+    scbp(0, starty);
+    ++startl;
   }
-
-  write(ttyout, "\033[H", 3); // Move home
-  return 0;
 }
 
-/* Assumes set up has been done and all is checked. */
+/*
 int run()
 {
   // Initilize the user info
-  p.correct = 0;
-  p.error   = 0;
-  p.x       = 0;
-  p.y       = 0;
-  p.score   = 0;
   p.start   = clock();
 
   char c;
-  int linesize = 0; //strlen(words[0]);
   while (1) {
     c = getInput();
 
@@ -151,17 +268,12 @@ int run()
         return 0;
         break;
       case DEL:
-        if (p.x <= 0) {
+        if (g.lci <= 0) {
           // We are at the left most position on the screen
-          if (p.y > 0) {
-            char position[12] = { '\0' };
-            linesize = 0;//strlen(words[p.y]);
-            p.x = linesize;
-            --p.y;
-            write(ttyout, "\033[A", 3);
-            sprintf(position, "\033[%dC", p.x);
-            write(ttyout, position, strlen(position));
-            //TODO: write(ttyout, &words[p.y][p.x], 1);
+          if (g.lri > 0) {
+            --g.lri;
+            g.lci = g.ln[g.lri]->sz;
+            // TODO NEED TO SET THE BOARD POSITION, NOT THE WINDOW POSITION
           }
         }
         else {
@@ -181,7 +293,7 @@ int run()
         }
         break;
       default:
-        /* TODO:
+        // TODO:
         if (c == words[p.y][p.x]) {
           setColor(GOOD);
           write(ttyout, &words[p.y][p.x], 1);
@@ -192,13 +304,13 @@ int run()
           write(ttyout, &words[p.y][p.x], 1);
           setColor(NORMAL);
         }
-        */
+
         if (p.x < d.cols) ++p.x;
     }; 
   }
 
   return c;
-}
+} */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Setup
@@ -209,6 +321,21 @@ void clean_up()
 {
   /* Flush the terminal upon exit, and reset the original terminal settings. */
   tcsetattr(ttyin, TCSAFLUSH, &orig_term);
+
+  if (g.ln) {
+    destroy_lines(g.ln, g.lsz);
+    free(g.ln);
+  }
+  if (g.fn) free(g.fn);
+  free(cur_string);
+
+  if (p.input) {
+    for (int i = 0; i < g.sz_rows; ++i) {
+      free(p.input[i]);
+    }
+    free(p.input);
+  }
+
 }
 
 void raw_mode()
@@ -223,18 +350,12 @@ void raw_mode()
    *  termios-p->c_cflag &= ~(CSIZE|PARENB);
    *  termios-p->c_flag |= CS8;
    */
-  struct winsize ws;
-  ioctl(ttyout, TIOCGWINSZ, &ws);
-  d.rows = ws.ws_row;
-  d.cols = ws.ws_col;
-
   if ( !isatty(ttyin)) {
     fprintf(stderr, "This is not a tty.\n");
     exit(EXIT_FAILURE);
   }
   // Copy the original terminal settings so they can be set upon exit
   tcgetattr(ttyin, &orig_term); 
-  atexit(clean_up); // declared in stdlib.h       
 
   struct termios term = orig_term;
   /* Trun off break (enter CBREAK)
@@ -254,119 +375,72 @@ void raw_mode()
   tcsetattr(ttyin, TCSAFLUSH, &term);
 }
 
-/*
-int read_file()
+int init_game()
 {
-  FILE* f = fopen("data/test.txt", "r");
-  if ( !f) {
-    perror("Could not open file.");
-    return -1;
-  }
-
-  words = malloc(MAX_LINES * sizeof(char*));
-  if ( !words) {
-   perror("Could not allocate memory.");
-   return -1;
-  }
-  for (int a = 0; a < MAX_LINES; ++a) 
-    *(words + a) = NULL;
-  
-   * Input sanatization
-   * 1) Remove all non-print letters
-   * 2) No more than 1 space between words
-   *
-   * Getting the line
-   * 1. Get a line that is size of cols
-   * 2. Work backwards and find the last word
-   *    a) The last word occurs at the end of the line
-   *    b) The last word is broken between 2 lines
-   *      1) Back up to space, remove rest
-   *    c) There is a space between the first column and first word?
-   e 3. Cut the line off at the last space before a 1/2 word
-   * 4. Copy line to program 
-   * 5. repeat
-  
-  char* line = malloc(d.cols * sizeof(char));
-  memset(line, '\0', d.cols);
-  int index = 0;
-  int inword = false;
-  char c;
-  for (int a = 0; a < MAX_LINES; ++a) {
-    //Get the line
-    while ((c = fgetc(f)) != EOF && index < d.cols) {
-      // We have a print character, check word
-      if (isprint((char)c)) {
-
-        if ((char)c == ' ' && inword) {
-          // At the end of a word.  
-          inword = false;
-          line[index++] = (char)c;
-        }
-        else if ((char)c == ' ' && !inword) {
-          // Not in a word, and an extra space
-          continue;
-        }
-        else {
-          if ( !inword) inword = true;
-          line[index++] = (char)c;
-        }
-      }
-      else if ((char)c == '\n' && inword) {
-        // Removing new lines from input file
-        line[index++] = ' ';
-      }
-    }
-      // Process line
-      --index;
-      int end = d.cols - 1;
-      if (inword) {
-        while (line[index--] != ' ') 
-          ;
-        
-        words[a] = malloc(d.cols * sizeof(char));
-        memset(words[a], '\0', d.cols);
-        strncpy(words[a], line, index);
-      } 
-      printf("%s", words[a]);
-      index = 0;
-      memset(line, '\0', d.cols);
-      fseek(f, end - index, SEEK_CUR);
-  }
-
-  fclose(f);
-  return 0;
-} */
-
-/* int main()
-{
-  //raw_mode();
   struct winsize ws;
   ioctl(ttyout, TIOCGWINSZ, &ws);
-  d.rows = ws.ws_row;
-  d.cols = ws.ws_col;
+  g.tot_rows = ws.ws_row;
+  g.tot_cols = ws.ws_col;
 
-  if (read_file() == -1)  return -1;
-  //screen();
-  //run();
+  int middlecols = g.tot_cols / 2;
+  int middlerows = g.tot_rows / 2;
+
+  // Set up the game 
+  g.sz_cols = g.tot_cols * game_width_factor;
+  g.sz_rows = g.tot_rows * game_height_factor;
+
+  g.st_cols  = g.tot_cols - (middlecols + (g.sz_cols / 2));
+  g.end_cols = g.tot_cols - (middlecols - (g.sz_cols / 2));
+  g.st_rows  = g.tot_rows - (middlerows + (g.sz_rows / 2));
+  g.end_rows = g.tot_rows - (middlerows - (g.sz_rows / 2));
+
+  g.ln = NULL;
+  g.lsz = 0;
+  g.lri = 0;
+  g.lci = 0;
+  g.fn = NULL;
+
+  cur_string = malloc(cur_string_sz * sizeof(char));
+  if ( !cur_string) return -1;
+  memset(cur_string, '\0', 20);
+  
+  // Set up the player
+  p.correct = 0;
+  p.error   = 0;
+  p.score   = 0.0f;
+  p.row     = 0;
+  p.col     = 0;
+
+  p.input = malloc(g.sz_rows * sizeof(char *));
+  if ( !p.input) return -1;
+  for (int i = 0; i < g.sz_rows; ++i) {
+    p.input[i] = malloc(g.sz_cols * sizeof(char));
+    if ( !p.input[i]) return -1;
+    memset(p.input[i], '\0', g.sz_cols);
+  }
+
+  raw_mode();
 
   return 0;
-} */
+}
 
 int main()
 {
-  struct Line** lines;
-  int size = 100;
-  lines = malloc(size * sizeof(struct Line *));
-  memset(lines, '\0', size);
-  int cols = 80;
-  int ln = read_file("data/test.txt", lines, size, cols);
-  if (ln < 0) exit(EXIT_FAILURE);
-  for (int i = 0; i < ln; ++i)
-    printf("%s\n", lines[i]->ln);
+   init_game();
+// Set the file information.
+  char* fn = "data/alice.txt";
+  g.fn = malloc(strlen(fn) * sizeof(char) + 1);
+  strcpy(g.fn, fn);
+// Set up the lines struct
+  g.ln = malloc(max_lines * sizeof(struct Line *));
+  memset(g.ln, '\0', max_lines);
 
-  destroy_lines(lines, ln);
-  free(lines);
+  g.lsz = read_file(g.fn, g.ln, max_lines, g.sz_cols);
+  if (g.lsz <= 0) exit(EXIT_FAILURE);
 
+  display_lines();
+
+  clean_up();
   // Close all file descripters for valgrind error summary.
   fclose(stdin);
   fclose(stdout);
