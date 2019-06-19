@@ -29,9 +29,9 @@ enum KEYMAP {
 
 enum COLORS {
   NORMAL = 0,
-  GOOD,
-  WARN,
-  CRISIS,
+  GREENONBLACK,
+  REDONBLACK,
+  YELLOWONBLACK,
   BAD_INPUT,
   COMPLETE
 };
@@ -76,19 +76,21 @@ const char* game_settings[] = { \
 
 struct Game
 {
-  int tot_cols;   /**< Total columns */
-  int tot_rows;   /**< Total rows */
-  int sz_cols;  /**< Size of game columns window */
-  int sz_rows;
-  int st_cols;
-  int end_cols;
-  int st_rows;
-  int end_rows;
+  int tot_cols;     /**< Window size X */
+  int tot_rows;     /**< Window size Y */
+  int sz_cols;      /**< Board size X */
+  int sz_rows;      /**< Board size Y */
+  int st_cols;      /**< First column of the board */
+  int end_cols;     /**< Last column of the board */
+  int st_rows;      /**< First row of the board */
+  int end_rows;     /**< Last row of the board */
 
-  struct Line** ln;
-  int lsz;          /**< total lines that exist in ln */
-  int lri;          /**< line row index */
-  int lci;          /**< line column index  */
+  int read_line;    /**< The line which the current input line is. Middle of the screen. */
+
+  struct Line** ln; /**< Test material */
+  int lsz;          /**< Line size - number of ln's */
+  int lri;          /**< Line row index */
+  int lci;          /**< Line column index  */
 
   char* fn;         /**< Current file name */
 } g;
@@ -96,10 +98,10 @@ struct Game
 struct Player
 {
   char** input;
-  int row, col;
 
   int correct;
   int error; 
+  int words;
   double score;
   clock_t start; 
 } p;
@@ -118,14 +120,14 @@ void setColor(enum COLORS c)
     case NORMAL:
       write(ttyout, "\033[37;40m", 8);
       break;
-    case GOOD:
+    case GREENONBLACK:
       write(ttyout, "\033[32;40m", 8);
       break;
-    case WARN:
-      write(ttyout, "\033[33;40m", 8);
-      break;
-    case CRISIS:
+    case REDONBLACK:
       write(ttyout, "\033[31;40m", 8);
+      break;
+    case YELLOWONBLACK:
+      write(ttyout, "\033[33;40m", 8);
       break;
     case BAD_INPUT:
       write(ttyout, "\033[30;41m", 8);
@@ -239,25 +241,24 @@ void display_lines()
 {
   if ( !g.ln) return;
 
+  // TODO: This should only clear the game board.
   write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR));
 
-  int starty = 0;
-  int startl = g.lri;
+  int startline = g.lri;
 
   scbp(0, 0);
-  while (starty + g.st_rows < g.end_rows && startl < g.lsz) {
-    write(ttyout, g.ln[startl]->ln, g.ln[startl]->sz);  
-    starty += line_spacing;
-    scbp(0, starty);
-    ++startl;
+  while (startline * line_spacing < g.sz_rows && startline < g.lsz) {
+    write(ttyout, g.ln[startline]->ln, g.ln[startline]->sz);  
+    scbp(0, ++startline * line_spacing);
   }
 }
 
-/*
+
 int run()
 {
   // Initilize the user info
-  p.start   = clock();
+  p.start = clock();
+  scbp(0, 0); 
 
   char c;
   while (1) {
@@ -272,45 +273,58 @@ int run()
           // We are at the left most position on the screen
           if (g.lri > 0) {
             --g.lri;
-            g.lci = g.ln[g.lri]->sz;
-            // TODO NEED TO SET THE BOARD POSITION, NOT THE WINDOW POSITION
+            g.lci = g.ln[g.lri]->sz - 1;
+            scbp(g.lci, g.lri * line_spacing);
+            write(ttyout, &g.ln[g.lri]->ln[g.lci], 1);
+            write(ttyout, CUR_LEFT_ONE, strlen(CUR_LEFT_ONE));
           }
         }
         else {
           // At some position in the line
-          write(ttyout, "\033[D", 3);
-          // TODO write(ttyout, &words[p.y][--p.x], 1);
-          write(ttyout, "\033[D", 3);
+          --g.lci;
+          write(ttyout, CUR_LEFT_ONE, strlen(CUR_LEFT_ONE));
+          write(ttyout, &g.ln[g.lri]->ln[g.lci], 1);
+          write(ttyout, CUR_LEFT_ONE, strlen(CUR_LEFT_ONE));
         } 
         break;
       case CR:
-        // TODO: Verify word
-        if (p.y < d.rows) {
-          write(ttyout, "\033[B", 3);
-          write(ttyout, "\033[1000D", 7);
-          ++p.y;
-          p.x = 0;
+        if (g.lri + 1 < g.lsz) {
+          // We can move down a line.
+          if (g.lci < g.ln[g.lri]->sz) {
+            // Mark the rest of the line as error, and add errors to the player
+            setColor(REDONBLACK);
+            for (int i = g.lci; i < g.ln[g.lri]->sz; ++i) {
+              write(ttyout, &g.ln[g.lri]->ln[i], 1);
+              ++p.error;
+            }
+            setColor(NORMAL);
+          }
+          ++g.lri;
+          g.lci = 0;
+          scbp(g.lci, g.lri * line_spacing);
         }
         break;
       default:
-        // TODO:
-        if (c == words[p.y][p.x]) {
-          setColor(GOOD);
-          write(ttyout, &words[p.y][p.x], 1);
+        p.input[g.lri][g.lci] = c;
+        ++p.correct;
+        if (c == g.ln[g.lri]->ln[g.lci]) {
+          setColor(GREENONBLACK);
+          write(ttyout, &g.ln[g.lri]->ln[g.lci], 1);
           setColor(NORMAL);
         }
         else {
-          setColor(BAD_INPUT);
-          write(ttyout, &words[p.y][p.x], 1);
+          ++p.error;
+          setColor(REDONBLACK);
+          write(ttyout, &g.ln[g.lri]->ln[g.lci], 1);
           setColor(NORMAL);
         }
 
-        if (p.x < d.cols) ++p.x;
+        if (g.lci < g.sz_cols) ++g.lci;
     }; 
   }
 
   return c;
-} */
+} 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Setup
@@ -399,6 +413,7 @@ int init_game()
   g.lri = 0;
   g.lci = 0;
   g.fn = NULL;
+  g.rl = middlerows;
 
   cur_string = malloc(cur_string_sz * sizeof(char));
   if ( !cur_string) return -1;
@@ -407,9 +422,8 @@ int init_game()
   // Set up the player
   p.correct = 0;
   p.error   = 0;
+  p.words   = 0;
   p.score   = 0.0f;
-  p.row     = 0;
-  p.col     = 0;
 
   p.input = malloc(g.sz_rows * sizeof(char *));
   if ( !p.input) return -1;
@@ -420,6 +434,7 @@ int init_game()
   }
 
   raw_mode();
+  setColor(NORMAL);
 
   return 0;
 }
@@ -439,6 +454,7 @@ int main()
   if (g.lsz <= 0) exit(EXIT_FAILURE);
 
   display_lines();
+  run();
 
   clean_up();
   // Close all file descripters for valgrind error summary.
