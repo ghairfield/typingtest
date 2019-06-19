@@ -42,7 +42,7 @@ struct Word* write_line(struct Line* l, struct Word* start, int cols)
     tmp  =  tmp->next;
   }
 
-  tmp  =  start;
+  tmp = start;
   int index = 0;
   while (tmp != end) {
     // Copy the word, add a space
@@ -52,6 +52,7 @@ struct Word* write_line(struct Line* l, struct Word* start, int cols)
     copy_word(l->ln, index++, " ", 1);
   }
   copy_word(l->ln, index, end->w, end->size);
+  l->sz = index + end->size;
   
   return end;
 } 
@@ -116,7 +117,23 @@ int read_file_(const char* fname)
     fprintf(stderr, "%s:%d - Could not open file <%s>\n", __FILE__, __LINE__, fname);
     return -1;
   }
-  
+
+  /*
+   * Input sanatization
+   * 1) Remove all non-print letters
+   * 2) No more than 1 space between words
+   *
+   * Getting the line
+   * 1. Get a line that is size of cols
+   * 2. Work backwards and find the last word
+   *    a) The last word occurs at the end of the line
+   *    b) The last word is broken between 2 lines
+   *      1) Back up to space, remove rest
+   *    c) There is a space between the first column and first word?
+   e 3. Cut the line off at the last space before a 1/2 word
+   * 4. Copy line to program 
+   * 5. repeat
+   */
   bool inWord = false;
   char word[MAX_LETTERS] = { '\0' };
   int  wordIndex = 0;
