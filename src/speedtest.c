@@ -104,8 +104,6 @@ struct Game
   int st_rows;      /**< First row of the board */
   int end_rows;     /**< Last row of the board */
 
-  int rl;           /**< The line which the current input line is. Middle of the screen. */
-
   struct Line** ln; /**< Test material */
   int lsz;          /**< Line size - number of ln's */
   int lri;          /**< Line row index */
@@ -121,9 +119,23 @@ struct Player
   int correct;      /**< Number of correct keystrokes */
   int error;        /**< Number of error keystrokes */
   int words;        /**< Number of words entered */
-  double score;
-  clock_t start; 
+  float score;      /**< Score */
+  clock_t start;    /**< Time the game was started */
 } p;
+
+struct StatusLine
+{
+  char* ln;         /**< This should be g.sz_cols in size */
+  int sz;           /**< Size of ln */
+
+  int st_cols;      /**< Column status line starts on */
+  int st_rows;      /**< Row of the status line */
+  int tm;           /**< X position of the p.start */
+  int correct;      /**< X posistion of the p.correct */
+  int error;        /**< X position of p.error */
+  int words;        /**< X position of p.words */
+  float score;      /**< X position of p.score */
+} sl;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Helpers
@@ -323,10 +335,7 @@ char getInput()
 void display_lines()
 {
   if ( !g.ln) return;
-  /**
-   * g.rl should be the line we want in the middle of the screen.
-   * g.lri is the line that should appear there.
-   */
+  // g.lri is the line that should appear in the middle of the screen.
   int startline = g.lri;
   scbp(0, 0);
   while (startline * line_spacing < g.sz_rows && startline < g.lsz) {
@@ -541,21 +550,23 @@ int init_game()
   g.sz_cols = g.tot_cols * game_width_factor;
   g.sz_rows = g.tot_rows * game_height_factor;
 
+  // The left,top, right and bottom bounds of the game board
   g.st_cols  = g.tot_cols - (middlecols + (g.sz_cols / 2));
   g.end_cols = g.tot_cols - (middlecols - (g.sz_cols / 2));
   g.st_rows  = g.tot_rows - (middlerows + (g.sz_rows / 2));
   g.end_rows = g.tot_rows - (middlerows - (g.sz_rows / 2));
 
+  // Memory 
   g.ln = NULL;
   g.lsz = 0;
   g.lri = 0;
   g.lci = 0;
   g.fn = NULL;
-  g.rl = (g.sz_rows / line_spacing) / 2;
 
+  // A general string for curser movement
   cur_string = malloc(cur_string_sz * sizeof(char));
   if ( !cur_string) return -1;
-  memset(cur_string, '\0', 20);
+  memset(cur_string, '\0', cur_string_sz);
   
   // Set up the player
   p.correct = 0;
@@ -570,6 +581,31 @@ int init_game()
     if ( !p.input[i]) return -1;
     memset(p.input[i], '\0', g.sz_cols);
   }
+
+  // Set up the status line
+  sl.ln = malloc(g.sz_cols * sizeof(char));
+  if ( !ln) return -1;
+  sl.sz = g.sz_cols;
+  sl.st_cols = g.st_cols;
+
+  // Set the row of the status line
+  if (g.tot_rows - g.end_rows < 2) sl.st_rows = g.end_rows + 1;
+  else sl.st_rows = (g.tot_rows - g.end_rows) / 2;
+
+
+struct StatusLine
+{
+  char* ln;         /**< This should be g.sz_cols in size */
+  int sz;           /**< Size of ln */
+
+  int st_cols;      /**< Column status line starts on */
+  int st_rows;      /**< Row of the status line */
+  int tm;           /**< X position of the p.start */
+  int correct;      /**< X posistion of the p.correct */
+  int error;        /**< X position of p.error */
+  int words;        /**< X position of p.words */
+  float score;      /**< X position of p.score */
+} sl;
 
   raw_mode();
   setColor(NORMAL);
