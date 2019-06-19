@@ -3,16 +3,17 @@
  * A speed typing test for fun and profit. 
  * June 18, 2019
  */
-#include "fileio.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include <termios.h>
-#include <sys/ioctl.h>
 #include <unistd.h>
 #include <time.h>
+#include <termios.h>
+#include <sys/ioctl.h>
+#include <signal.h>
 #include <stdbool.h>
+#include "fileio.h"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Global def's
@@ -32,7 +33,11 @@ enum COLORS {
   GREENONBLACK,
   REDONBLACK,
   YELLOWONBLACK,
-  BAD_INPUT,
+  BLUEONBLACK,
+  CYANONBLACK,
+  MAGENTAONBLACK,
+  BLACKONRED,
+  REDONRED,
   COMPLETE
 };
 
@@ -59,23 +64,34 @@ const float game_width_factor  = 0.80f;
 const float game_height_factor = 0.80f;
 const int   max_lines          = 1000;
 const int   line_spacing       = 2;
-const char* game_settings[] = { \
-/* 0  */    "Game Settings -",    \
-/* 1  */    "Columns      : %d",  \
-/* 2  */    "Rows         : %d",  \
-/* 3  */    "Game Board Size  ",  \
-/* 4  */    "        Cols : %d",  \
-/* 5  */    "        Rows : %d",  \
-/* 6  */    " Factor Cols : %.2f",\
-/* 7  */    " Factor Rows : %.2f",\
-/* 8  */    "Columns            ",\
-/* 9  */    "     Start   : %d",  \
-/* 10 */    "     End     : %d",  \
-/* 11 */    "Rows             ",  \
-/* 12 */    "     Start   : %d",  \
-/* 13 */    "     End     : %d",  \
-/* 14 */    "Speed        : %.2f",\
+
+const char* game_settings[] = { 
+/* 0  */    "Game Settings -",    
+/* 1  */    "Columns      : %d",  
+/* 2  */    "Rows         : %d",  
+/* 3  */    "Game Board Size  ",  
+/* 4  */    "        Cols : %d",  
+/* 5  */    "        Rows : %d",  
+/* 6  */    " Factor Cols : %.2f",
+/* 7  */    " Factor Rows : %.2f",
+/* 8  */    "Columns            ",
+/* 9  */    "     Start   : %d",  
+/* 10 */    "     End     : %d",  
+/* 11 */    "Rows             ",  
+/* 12 */    "     Start   : %d",  
+/* 13 */    "     End     : %d",  
+/* 14 */    "Speed        : %.2f",
 /* 15 */     NULL };
+
+const char* welcome[] = {
+  "Another typing test - written in c99 with ASCII terminal codes.",
+  "Written by Greg Hairfield",
+  "Commands:",
+  "ESC - go back a screen                                 Q - Quit",
+  "L - Load a file                              S - Start the game", 
+  "M - Game settings                            CTRL-C - Quit game" };
+
+void clean_up();
 
 struct Game
 {
@@ -132,8 +148,20 @@ void setColor(enum COLORS c)
     case YELLOWONBLACK:
       write(ttyout, "\033[33;40m", 8);
       break;
-    case BAD_INPUT:
+    case BLACKONRED:
       write(ttyout, "\033[30;41m", 8);
+      break;
+    case REDONRED:
+      write(ttyout, "\033[31;41m", 8);
+      break;
+    case BLUEONBLACK:
+      write(ttyout, "\033[34;40m", 8);
+      break;
+    case CYANONBLACK:
+      write(ttyout, "\033[36;40m", 8);
+      break;
+    case MAGENTAONBLACK:
+      write(ttyout, "\033[35;40m", 8);
       break;
     case COMPLETE:
       write(ttyout, "\033[1;40m", 7);
@@ -155,6 +183,45 @@ void scbp(int x, int y)
   sprintf(cur_string, CUR_RIGHT, x + g.st_cols);
   write(ttyout, cur_string, strlen(cur_string)); 
   clear_cursor_string();
+}
+
+void display_welcome() 
+{
+  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR));
+  int middley = g.sz_rows / 3;
+  int middlex = g.sz_cols / 2;
+  int offx    = middlex - (strlen(welcome[0]) / 2);
+  scbp(offx, middley);
+  setColor(MAGENTAONBLACK);
+  write(ttyout, welcome[0], strlen(welcome[0])); 
+
+  offx = middlex - (strlen(welcome[1]) / 2);
+  middley += 2;
+  scbp(offx, middley);
+  write(ttyout, welcome[1], strlen(welcome[1])); 
+  
+  setColor(CYANONBLACK);
+  offx = middlex - (strlen(welcome[2]) / 2);
+  middley += 2;
+  scbp(offx, middley);
+  write(ttyout, welcome[2], strlen(welcome[2])); 
+
+  offx = middlex - (strlen(welcome[3]) / 2);
+  middley += 1;
+  scbp(offx, middley);
+  write(ttyout, welcome[3], strlen(welcome[3])); 
+
+  offx = middlex - (strlen(welcome[4]) / 2);
+  middley += 1;
+  scbp(offx, middley);
+  write(ttyout, welcome[4], strlen(welcome[4])); 
+
+  offx = middlex - (strlen(welcome[5]) / 2);
+  middley += 1;
+  scbp(offx, middley);
+  write(ttyout, welcome[5], strlen(welcome[5])); 
+
+  setColor(NORMAL);
 }
 
 void display_game_settings()
@@ -244,7 +311,7 @@ char getInput()
   if (bytes == -1) return EXIT; // Failure
 
   if (c_in == CTRL_C || c_in == CTRL_Q) return EXIT; // User quit
-
+  if (c_in == ESC) return ESC;  
   if (c_in == DEL || c_in == BACK) return DEL; // Backspace
 
   return c_in; // Regular character
@@ -270,8 +337,10 @@ void display_lines()
 
 int run()
 {
-  // Initilize the user info
+  // Initilize 
   p.start = clock();
+  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR)); 
+  display_lines();
   scbp(0, 0); 
 
   char c;
@@ -280,6 +349,9 @@ int run()
 
     switch (c) {
       case EXIT:
+        return 0;
+        break;
+      case ESC:
         return 0;
         break;
       case DEL:
@@ -328,8 +400,15 @@ int run()
           setColor(NORMAL);
         }
         else {
+          // The input is not correct, display red letter
           ++p.error;
-          setColor(REDONBLACK);
+          p.input[g.lri][g.lci] = c;
+
+          if (g.ln[g.lri]->ln[g.lci] == ' ')
+            setColor(REDONRED);
+          else
+            setColor(REDONBLACK);
+
           write(ttyout, &g.ln[g.lri]->ln[g.lci], 1);
           setColor(NORMAL);
         }
@@ -339,8 +418,49 @@ int run()
   }
 
   return c;
-} 
+}
 
+int start_game()
+{
+  display_welcome();
+
+  char c;
+  bool exit = false;
+  bool mainmenu = true; // Are we displaying the main menu
+  do {
+    c = getInput();
+
+    switch(c) {
+     case EXIT:
+        exit = true;
+        break;
+      case ESC:
+        if (!mainmenu) {
+          display_welcome();
+          mainmenu = true;
+        }
+        break;
+      case 'M':
+      case 'm':
+        display_game_settings();
+        mainmenu = false;
+        break;
+      case 'Q':
+      case 'q':
+        exit = true;
+        clean_up();
+        break;
+      case 'S':
+      case 's':
+        run();
+        display_welcome();
+        break;
+    };
+  } while ( !exit);
+
+  return 0;
+}
+  
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Setup
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -348,7 +468,9 @@ struct termios orig_term;
 
 void clean_up()
 {
-  /* Flush the terminal upon exit, and reset the original terminal settings. */
+  write(ttyout, "\033[1000B", 7);
+  write(ttyout, "\033[1000D", 7);
+   /* Flush the terminal upon exit, and reset the original terminal settings. */
   tcsetattr(ttyin, TCSAFLUSH, &orig_term);
 
   if (g.ln) {
@@ -356,6 +478,7 @@ void clean_up()
     free(g.ln);
   }
   if (g.fn) free(g.fn);
+
   free(cur_string);
 
   if (p.input) {
@@ -364,7 +487,6 @@ void clean_up()
     }
     free(p.input);
   }
-
 }
 
 void raw_mode()
@@ -390,13 +512,14 @@ void raw_mode()
   /* Trun off break (enter CBREAK)
    * Trun off CR to NL
    * Turn off parity check
-   * Turn off strip char (8 bit characters) */
+   * Turn off strip char (8 bit characters) 
+   * Catch Ctrl-C */
   term.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | ISIG);
   /* Turn off echo, automattically writing to screen.
    * Turn off canonical mode. Read bytes instead of lines. 
    * Turn off Ctrl-Q and Ctrl-S, legacy terminal modes. */
   term.c_lflag &= ~(ECHO | ICANON | IXON); 
-  /* Do not ost process NL to CR+NL */
+  /* Do not post process NL to CR+NL */
   term.c_oflag &= ~(OPOST);  
   
   term.c_cc[VMIN] = 1;  // Read a mimium of 1 bytes
@@ -457,26 +580,30 @@ int init_game()
 
 int main()
 {
-   init_game();
-// Set the file information.
+  signal(SIGINT, clean_up);
+  init_game();
+
+  // ************************************************
+  // TODO: Move this to a load file function. 
   char* fn = "data/alice.txt";
   g.fn = malloc(strlen(fn) * sizeof(char) + 1);
   strcpy(g.fn, fn);
-// Set up the lines struct
+
+  // Set up the lines struct
   g.ln = malloc(max_lines * sizeof(struct Line *));
   memset(g.ln, '\0', max_lines);
 
   g.lsz = read_file(g.fn, g.ln, max_lines, g.sz_cols);
   if (g.lsz <= 0) exit(EXIT_FAILURE);
+  // ************************************************
 
-//  display_lines();
-//  run();
-  display_game_settings();
-
-  clean_up();
+  start_game();
+  
+  // Set the cursor at the bottom left of the screen on exit.
   // Close all file descripters for valgrind error summary.
   fclose(stdin);
   fclose(stdout);
   fclose(stderr);
+  
   return 0;
 } 
