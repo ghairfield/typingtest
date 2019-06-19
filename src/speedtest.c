@@ -1,7 +1,7 @@
 /**
  * Greg Hairfield
  * A speed typing test for fun and profit. 
- * May 27, 2019
+ * June 18, 2019
  */
 #include "fileio.h"
 #include <stdio.h>
@@ -54,25 +54,28 @@ const char* CUR_DOWN_ONE  = "\033[B";
 char* cur_string;
 const int cur_string_sz = 40;
 
+// Global constants
 const float game_width_factor  = 0.80f;
 const float game_height_factor = 0.80f;
 const int   max_lines          = 1000;
 const int   line_spacing       = 2;
 const char* game_settings[] = { \
-    "Game Settings -",    \
-    "Columns      : %d",  \
-    "Rows         : %d",  \
-    "Game Board Size  ",  \
-    "        Cols : %d",  \
-    "        Rows : %d",  \
-    "Game Cols        ",  \
-    "     Start   : %d",  \
-    "     End     : %d",  \
-    "Game Rows        ",  \
-    "     Start   : %d",  \
-    "     End     : %d",  \
-    "Game Speed   : %.2f",\
-    NULL };
+/* 0  */    "Game Settings -",    \
+/* 1  */    "Columns      : %d",  \
+/* 2  */    "Rows         : %d",  \
+/* 3  */    "Game Board Size  ",  \
+/* 4  */    "        Cols : %d",  \
+/* 5  */    "        Rows : %d",  \
+/* 6  */    " Factor Cols : %.2f",\
+/* 7  */    " Factor Rows : %.2f",\
+/* 8  */    "Columns            ",\
+/* 9  */    "     Start   : %d",  \
+/* 10 */    "     End     : %d",  \
+/* 11 */    "Rows             ",  \
+/* 12 */    "     Start   : %d",  \
+/* 13 */    "     End     : %d",  \
+/* 14 */    "Speed        : %.2f",\
+/* 15 */     NULL };
 
 struct Game
 {
@@ -85,7 +88,7 @@ struct Game
   int st_rows;      /**< First row of the board */
   int end_rows;     /**< Last row of the board */
 
-  int read_line;    /**< The line which the current input line is. Middle of the screen. */
+  int rl;           /**< The line which the current input line is. Middle of the screen. */
 
   struct Line** ln; /**< Test material */
   int lsz;          /**< Line size - number of ln's */
@@ -97,11 +100,11 @@ struct Game
 
 struct Player
 {
-  char** input;
+  char** input;     /**< The contents the user entered TODO: Not sure we are going to need this. */
 
-  int correct;
-  int error; 
-  int words;
+  int correct;      /**< Number of correct keystrokes */
+  int error;        /**< Number of error keystrokes */
+  int words;        /**< Number of words entered */
   double score;
   clock_t start; 
 } p;
@@ -142,10 +145,13 @@ void scbp(int x, int y)
 {
   assert(x >= 0 && y >= 0);
 
+  // Move home
   write(ttyout, CUR_HOME, strlen(CUR_HOME));
+  // Copy -Y position to string and write to terminal
   sprintf(cur_string, CUR_DOWN, y + g.st_rows);
   write(ttyout, cur_string, strlen(cur_string)); 
   clear_cursor_string();
+  // Copy X position to string and write to terminal
   sprintf(cur_string, CUR_RIGHT, x + g.st_cols);
   write(ttyout, cur_string, strlen(cur_string)); 
   clear_cursor_string();
@@ -185,32 +191,43 @@ void display_game_settings()
   write(ttyout, string, strlen(string)); 
 
   scbp(startx, starty++);
-  sprintf(string, game_settings[6]);
+  sprintf(string, game_settings[6], game_width_factor);
   write(ttyout, string, strlen(string)); 
 
   scbp(startx, starty++);
-  sprintf(string, game_settings[7], g.st_cols);
+  sprintf(string, game_settings[7], game_height_factor);
   write(ttyout, string, strlen(string)); 
 
   scbp(startx, starty++);
-  sprintf(string, game_settings[8], g.end_cols);
+  sprintf(string, game_settings[8]);
   write(ttyout, string, strlen(string)); 
 
   scbp(startx, starty++);
-  sprintf(string, game_settings[9]);
+  sprintf(string, game_settings[9], g.st_cols);
   write(ttyout, string, strlen(string)); 
 
   scbp(startx, starty++);
-  sprintf(string, game_settings[10], g.st_rows);
+  sprintf(string, game_settings[10], g.end_cols);
   write(ttyout, string, strlen(string)); 
 
   scbp(startx, starty++);
-  sprintf(string, game_settings[11], g.end_rows);
+  sprintf(string, game_settings[11]);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[12], g.st_rows);
+  write(ttyout, string, strlen(string)); 
+
+  scbp(startx, starty++);
+  sprintf(string, game_settings[13], g.end_rows);
   write(ttyout, string, strlen(string)); 
 
   scbp(startx, starty);
-  sprintf(cur_string, game_settings[12], 1.23f);
+  sprintf(cur_string, game_settings[14], 1.23);
   write(ttyout, cur_string, strlen(string)); 
+
+  write(ttyout, "\033[1000B", 7);
+  write(ttyout, "\033[1000D", 7);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -236,23 +253,20 @@ char getInput()
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Game
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 void display_lines()
 {
   if ( !g.ln) return;
-
-  // TODO: This should only clear the game board.
-  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR));
-
+  /**
+   * g.rl should be the line we want in the middle of the screen.
+   * g.lri is the line that should appear there.
+   */
   int startline = g.lri;
-
   scbp(0, 0);
   while (startline * line_spacing < g.sz_rows && startline < g.lsz) {
     write(ttyout, g.ln[startline]->ln, g.ln[startline]->sz);  
     scbp(0, ++startline * line_spacing);
   }
 }
-
 
 int run()
 {
@@ -305,6 +319,7 @@ int run()
         }
         break;
       default:
+        // Check that the entered text matches and add approiate color
         p.input[g.lri][g.lci] = c;
         ++p.correct;
         if (c == g.ln[g.lri]->ln[g.lci]) {
@@ -413,7 +428,7 @@ int init_game()
   g.lri = 0;
   g.lci = 0;
   g.fn = NULL;
-  g.rl = middlerows;
+  g.rl = (g.sz_rows / line_spacing) / 2;
 
   cur_string = malloc(cur_string_sz * sizeof(char));
   if ( !cur_string) return -1;
@@ -435,6 +450,7 @@ int init_game()
 
   raw_mode();
   setColor(NORMAL);
+  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR));
 
   return 0;
 }
@@ -453,8 +469,9 @@ int main()
   g.lsz = read_file(g.fn, g.ln, max_lines, g.sz_cols);
   if (g.lsz <= 0) exit(EXIT_FAILURE);
 
-  display_lines();
-  run();
+//  display_lines();
+//  run();
+  display_game_settings();
 
   clean_up();
   // Close all file descripters for valgrind error summary.
