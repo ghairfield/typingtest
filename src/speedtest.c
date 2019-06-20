@@ -25,7 +25,7 @@ enum KEYMAP {
   CTRL_Q = 17,  // Quit
   ESC    = 27,  // Escape 
   DEL    = 127, // Delete 
-  EXIT   = 0    // Exit the program gracefully.
+  EXIT   = -1   // Exit the program gracefully.
 };
 
 enum COLORS {
@@ -84,7 +84,8 @@ const char* welcome[] = {
   "C     Conways Game of Life" };
   
 // Status line helpers
-const char* sl_score = "Score: %d / %d    Accuracy: %.2f %    Word Count: %d";
+const char* sl_score = \
+      "Score: %d / %d    Accuracy: %.2f %    Word Count: %d    WPM: %.2f";
 const char* sl_time  = "Time: %ld s";
 // Forward declare
 void clean_up();
@@ -105,7 +106,7 @@ struct Game
   int lri;          /**< Line row index */
   int lci;          /**< Line column index  */
 
-  bool nunning;     /**< Is the game running? */
+  bool running;     /**< Is the game running? */
 
   char* fn;         /**< Current file name */
 } g;
@@ -123,9 +124,10 @@ struct Player
 
 struct StatusLine
 {
-  int st_rows;      /**< Row of the status line */
-  int tm;           /**< Offset of the p.start */
-  int score;        /**< Offset of sl_score */
+  int sc_rows;      /**< Row of the status line */
+  int sc_cols;      /**< Offset of sl_score */
+  int tm_rows;      /**< Row of the timer */
+  int tm_cols;      /**< Offset of the p.start */
 } sl;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -172,19 +174,24 @@ void setColor(enum COLORS c)
   };
 }
 
+/* Set cursor board position
+ *  Sets the cursor relative to the board */
 void scbp(int x, int y)
 {
   assert(x >= 0 && y >= 0);
-  // Move home
-  write(ttyout, "\033[H", 3);
-  // Copy -Y position to string and write to terminal
-  sprintf(cur_string, "\033[%dB", y + g.st_rows);
-  write(ttyout, cur_string, strlen(cur_string)); 
-  clear_cursor_string();
-  // Copy X position to string and write to terminal
-  sprintf(cur_string, "\033[%dC", x + g.st_cols);
-  write(ttyout, cur_string, strlen(cur_string)); 
-  clear_cursor_string();
+  
+  sprintf(cur_string, "\033[%d;%df", y + g.st_rows, x + g.st_cols);
+  write(ttyout, cur_string, strlen(cur_string));
+}
+
+/* Set cursor window position
+ *  Sets the cursor relative to the window */
+void scwp(int x, int y)
+{
+  assert(x > 0 && y > 0);
+
+  sprintf(cur_string, "\033[%d;%df", y, x);
+  write(ttyout, cur_string, strlen(cur_string));
 }
 
 void display_welcome() 
@@ -252,7 +259,7 @@ void display_game_settings()
   int starty = 0;
   char string[100] = { '\0' };
 
-  // Move cursor to starting position
+  // Move cursor to starting position and clear window
   write(ttyout, "\033[2J", 4); 
   // Write first line
   scbp(startx, starty++);
@@ -323,7 +330,7 @@ void display_game_settings()
 /* We ignore most input that doesn't apply to this program. */
 char getInput()
 {
-  char c_in;
+  char c_in = '\0';
   int bytes;
 
   bytes = read(ttyin, &c_in, 1);
@@ -357,13 +364,21 @@ void display_lines()
 void update_sl_score()
 {
   char str[100] = { '\0' };
+  // Hide cursor and move to status line position
   write(ttyout, "\033[s", 3);
-  sprintf(str, "\033[%d;%df", sl.st_rows, sl.score);
+  sprintf(str, "\033[%d;%df", sl.sc_rows, sl.sc_cols);
   write(ttyout, str, strlen(str));
   setColor(MAGENTAONBLACK);
+  
+  // Get the current time and compare to start time.
+  time_t now = time(NULL);
+  long diff = (long)now - (long)p.start;
+  float wpm = ((float)p.words / (float)diff) * 60.0f;
   sprintf(str, sl_score, p.error, p.correct, 
-         100.0f - ((float)p.error / (float)p.correct) * 100.0, p.words);
+         100.0f - ((float)p.error / (float)p.correct) * 100.0, p.words, wpm);
   write(ttyout, str, sizeof(str));
+  
+  // Set everyting back to normal
   setColor(NORMAL);
   write(ttyout, "\033[u", 3);
 }
@@ -378,13 +393,16 @@ void update_sl_time()
   char str[100] = { '\0' };
   time_t now = time(NULL);
 
+  // Get to the correct spot
   write(ttyout, "\033[s", 3);
-  sprintf(str, "\033[%d;%df", sl.st_rows, sl.tm);
+  sprintf(str, "\033[%d;%df", sl.tm_rows, sl.tm_cols);
   write(ttyout, str, strlen(str));
 
   sprintf(str, sl_time, (long)now - (long)p.start);
   setColor(BLUEONBLACK);
   write(ttyout, str, strlen(str));
+
+  // Set everything back to normal
   setColor(NORMAL);
   write(ttyout, "\033[u", 3);
 }
@@ -393,16 +411,29 @@ void update_sl_time()
 int run()
 {
   // Initialize 
-  write(ttyout, "\033[2J", 4); 
+  write(ttyout, "\033[2J", 4);   // Clear the screen
   write(ttyout, "\033[?25h", 6); // Show cursor
   display_lines();
   p.start = time(NULL);
+  time_t now, past = 0, scoreupdate = 0;
   bool inword = false;
+  update_sl_score();
+  update_sl_time(); 
 
-  char c;
+  char c = '\0';
   while (1) {
     c = getInput();
-    update_sl_time();
+    now = time(NULL);
+
+    // Update the clock
+    if (now - past > 1) {
+      update_sl_time();
+      past = now;
+    }
+    if (now - scoreupdate > 1) {
+      update_sl_score();
+      scoreupdate = now;
+    }
 
     switch (c) {
       case EXIT:
@@ -452,6 +483,8 @@ int run()
           inword = false;
         }
         break;
+      case '\0':
+        break;
       default:
         // Check that the entered text matches and add appropriate color
         p.input[g.lri][g.lci] = c;
@@ -484,6 +517,7 @@ int run()
 
         if (g.lci < g.sz_cols) { 
           ++g.lci;
+          scoreupdate = time(NULL);
           update_sl_score();
         }
     }; 
@@ -609,8 +643,8 @@ void raw_mode()
   /* Do not post process NL to CR+NL */
   term.c_oflag &= ~(OPOST);  
   
-  term.c_cc[VMIN] = 1;  // Read a minimum of 1 bytes
-  term.c_cc[VTIME] = 0; // No wait
+  term.c_cc[VMIN]  = 0;  // Read a minimum of 1 bytes and return
+  term.c_cc[VTIME] = 10; // 1 sec wait to return
   tcsetattr(ttyin, TCSAFLUSH, &term);
 }
 
@@ -667,10 +701,11 @@ int init_game()
   }
 
   // Set the row of the status line at the top
-  if (g.tot_rows - g.end_rows < 2) sl.st_rows = g.end_rows + 1;
-  else sl.st_rows = (g.tot_rows - g.end_rows) / 2;
-  sl.score = g.st_cols;
-  sl.tm    = g.end_cols - 11;
+  if (g.tot_rows - g.end_rows < 2) sl.sc_rows = g.end_rows + 1;
+  else sl.sc_rows = (g.tot_rows - g.end_rows) / 2;
+  sl.sc_cols = g.st_cols;
+  sl.tm_rows = g.end_rows + 2; // TODO: This needs to change to address 20 rows
+  sl.tm_cols = g.end_cols - 11;
   
   // Enter raw mode if all memory was allocated.
   raw_mode();

@@ -17,14 +17,13 @@ Keys:
 A basic typing game that counts accuracy. 
 
 To complete:
-- [ ] Ability to load different files
-- [ ] Save top scores to a file
-- [ ] Read top scores
-- [ ] Timer running on separate thread
-- [ ] Calculate words per minute typed
-- [ ] Adjust the sizing of the game board
-- [ ] Add CGL
+- [ ] Ability to load different files  
+- [ ] Save top scores to a file  
+- [ ] Read top scores  
+- [x] Timer running on ~~separate thread~~ use VIM/VTIME  
+- [x] Calculate words per minute typed  
+- [ ] Deleting needs to adjust score
+- [ ] Allow for the sizing of the game board  
+- [ ] Add CGL  
 
 Speed Typer written by Greg Hairfield and is licensed under the BSD 2 clause.
-
-
