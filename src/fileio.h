@@ -27,7 +27,7 @@ into a set of words, without spacing or any non-printable text. Then
 copies them into an array of struct Line until the entire file has been
 read or number of lines equals size. 
 
-@pre *line is alredy created, size > 0 && cols > 0
+@pre *line is already created, size > 0 && cols > 0
 @post line is filled with either @size lines or the entire file
 
 @param fname File name to open
@@ -35,7 +35,7 @@ read or number of lines equals size.
 @param size Size of line. *line should be allocated.
 @param cols Max width of each string. 
 
-@returns < 0 if an error occured, or the number of lines created.
+@returns < 0 if an error occurred, or the number of lines created.
 */
 int read_file(const char* fname, struct Line** line, int size, int cols);
 

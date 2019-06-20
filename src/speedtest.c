@@ -25,7 +25,7 @@ enum KEYMAP {
   CTRL_Q = 17,  // Quit
   ESC    = 27,  // Escape 
   DEL    = 127, // Delete 
-  EXIT   = 0    // Exit the program gracefuly.
+  EXIT   = 0    // Exit the program gracefully.
 };
 
 enum COLORS {
@@ -44,20 +44,9 @@ enum COLORS {
 #define ttyin STDIN_FILENO
 #define ttyout STDOUT_FILENO
 
-// Basic cursor movements
-const char* CUR_HOME  = "\033[H";
-const char* CUR_LEFT  = "\033[%dD";
-const char* CUR_RIGHT = "\033[%dC";
-const char* CUR_UP    = "\033[%dA";
-const char* CUR_DOWN  = "\033[%dB";
-// Single movements
-const char* CUR_CLEAR     = "\033[2J";
-const char* CUR_LEFT_ONE  = "\033[D";
-const char* CUR_RIGHT_ONE = "\033[C";
-const char* CUR_UP_ONE    = "\033[A";
-const char* CUR_DOWN_ONE  = "\033[B";
+// A temporary string to copy to
 char* cur_string;
-const int cur_string_sz = 40;
+const int cur_string_sz = 100;
 
 // Global constants
 const float game_width_factor  = 0.80f;
@@ -91,12 +80,13 @@ const char* welcome[] = {
   "CTRL-C/Q              Quit",
   "L              Load a file",
   "S               Start game",
-  "M     Settings/Leaderboard",
+  "M     Settings/Leader-board",
   "C     Conways Game of Life" };
   
+// Status line helpers
 const char* sl_score = "Score: %d / %d    Accuracy: %.2f %    Word Count: %d";
 const char* sl_time  = "Time: %ld s";
-
+// Forward declare
 void clean_up();
 
 struct Game
@@ -115,7 +105,7 @@ struct Game
   int lri;          /**< Line row index */
   int lci;          /**< Line column index  */
 
-  bool running;     /**< Is the game running? */
+  bool nunning;     /**< Is the game running? */
 
   char* fn;         /**< Current file name */
 } g;
@@ -185,22 +175,22 @@ void setColor(enum COLORS c)
 void scbp(int x, int y)
 {
   assert(x >= 0 && y >= 0);
-
   // Move home
-  write(ttyout, CUR_HOME, strlen(CUR_HOME));
+  write(ttyout, "\033[H", 3);
   // Copy -Y position to string and write to terminal
-  sprintf(cur_string, CUR_DOWN, y + g.st_rows);
+  sprintf(cur_string, "\033[%dB", y + g.st_rows);
   write(ttyout, cur_string, strlen(cur_string)); 
   clear_cursor_string();
   // Copy X position to string and write to terminal
-  sprintf(cur_string, CUR_RIGHT, x + g.st_cols);
+  sprintf(cur_string, "\033[%dC", x + g.st_cols);
   write(ttyout, cur_string, strlen(cur_string)); 
   clear_cursor_string();
 }
 
 void display_welcome() 
 {
-  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR));
+  // One ginormous function to write the intro screen
+  write(ttyout, "\033[2J", 4);
   int middley = g.sz_rows / 3;
   int middlex = g.sz_cols / 2;
   int offx    = middlex - (strlen(welcome[0]) / 2);
@@ -217,7 +207,7 @@ void display_welcome()
   offx = middlex - (strlen(welcome[2]) / 2);
   middley += 2;
   scbp(offx, middley);
-  write(ttyout, "\033[4m", 4);
+  write(ttyout, "\033[4m", 4); // Underline
   write(ttyout, welcome[2], strlen(welcome[2])); 
   write(ttyout, "\033[0m", 4);
   setColor(CYANONBLACK);
@@ -257,12 +247,13 @@ void display_welcome()
 
 void display_game_settings()
 {
+  // One ginormous function to write the game info
   int startx = 0;
   int starty = 0;
   char string[100] = { '\0' };
 
   // Move cursor to starting position
-  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR)); 
+  write(ttyout, "\033[2J", 4); 
   // Write first line
   scbp(startx, starty++);
   write(ttyout, game_settings[0], strlen(game_settings[0]));
@@ -338,9 +329,9 @@ char getInput()
   bytes = read(ttyin, &c_in, 1);
   if (bytes == -1) return EXIT; // Failure
 
-  if (c_in == CTRL_C || c_in == CTRL_Q) return EXIT; // User quit
-  if (c_in == ESC) return ESC;  
-  if (c_in == DEL || c_in == BACK) return DEL; // Backspace
+  if (c_in == CTRL_C || c_in == CTRL_Q) return EXIT; // Return to main menu
+  if (c_in == ESC) return ESC; // Returns to the main menu 
+  if (c_in == DEL || c_in == BACK) return DEL; // Deletes a character
 
   return c_in; // Regular character
 }
@@ -362,6 +353,7 @@ void display_lines()
   scbp(0, 0);
 }
 
+/* Display the score status line */
 void update_sl_score()
 {
   char str[100] = { '\0' };
@@ -376,6 +368,11 @@ void update_sl_score()
   write(ttyout, "\033[u", 3);
 }
 
+/* Display the time part of the status line
+ * This is updated differently than the score, and
+ * would be good if this didn't rely on the read
+ * blocking call.
+ */
 void update_sl_time()
 {
   char str[100] = { '\0' };
@@ -392,10 +389,11 @@ void update_sl_time()
   write(ttyout, "\033[u", 3);
 }
 
+/* Runs the typing test game. */
 int run()
 {
-  // Initilize 
-  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR)); 
+  // Initialize 
+  write(ttyout, "\033[2J", 4); 
   write(ttyout, "\033[?25h", 6); // Show cursor
   display_lines();
   p.start = time(NULL);
@@ -421,15 +419,15 @@ int run()
             g.lci = g.ln[g.lri]->sz - 1;
             scbp(g.lci, g.lri * line_spacing);
             write(ttyout, &g.ln[g.lri]->ln[g.lci], 1);
-            write(ttyout, CUR_LEFT_ONE, strlen(CUR_LEFT_ONE));
+            write(ttyout, "\033[D", 3);
           }
         }
         else {
           // At some position in the line
           --g.lci;
-          write(ttyout, CUR_LEFT_ONE, strlen(CUR_LEFT_ONE));
+          write(ttyout, "\033[D", 3);
           write(ttyout, &g.ln[g.lri]->ln[g.lci], 1);
-          write(ttyout, CUR_LEFT_ONE, strlen(CUR_LEFT_ONE));
+          write(ttyout, "\033[D", 3);
         } 
         break;
       case CR:
@@ -455,7 +453,7 @@ int run()
         }
         break;
       default:
-        // Check that the entered text matches and add approiate color
+        // Check that the entered text matches and add appropriate color
         p.input[g.lri][g.lci] = c;
         ++p.correct;
         if (c == g.ln[g.lri]->ln[g.lci]) {
@@ -496,6 +494,7 @@ int run()
   return c;
 }
 
+/* Basic game main menu. Hitting ESC brings the program here. */
 int start_game()
 {
   display_welcome();
@@ -507,24 +506,34 @@ int start_game()
     c = getInput();
 
     switch(c) {
-     case EXIT:
+      // CTRL-C/CTRL-Q
+      case EXIT:
         exit = true;
         break;
+      // Escape  
       case ESC:
         if (!mainmenu) {
+          // Is the main window showing?
           display_welcome();
           mainmenu = true;
         }
         break;
+      // Load a typing file TODO
+      case 'L':
+      case 'l':
+        break;
+      // Show game internal info
       case 'M':
       case 'm':
         display_game_settings();
         mainmenu = false;
         break;
+      // Quit the game
       case 'Q':
       case 'q':
         exit = true;
         break;
+      // Run the game
       case 'S':
       case 's':
         run();
@@ -543,6 +552,7 @@ struct termios orig_term;
 
 void clean_up()
 {
+  // Move cursor to bottom of screen on quit.
   write(ttyout, "\033[1000B", 7);
   write(ttyout, "\033[1000D", 7);
    /* Flush the terminal upon exit, and reset the original terminal settings. */
@@ -586,35 +596,40 @@ void raw_mode()
   tcgetattr(ttyin, &orig_term); 
 
   struct termios term = orig_term;
-  /* Trun off break (enter CBREAK)
-   * Trun off CR to NL
+  /* Turn off break (enter CBREAK)
+   * Turn off CR to NL
    * Turn off parity check
    * Turn off strip char (8 bit characters) 
    * Catch Ctrl-C */
   term.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | ISIG);
-  /* Turn off echo, automattically writing to screen.
+  /* Turn off echo, automatically writing to screen.
    * Turn off canonical mode. Read bytes instead of lines. 
    * Turn off Ctrl-Q and Ctrl-S, legacy terminal modes. */
   term.c_lflag &= ~(ECHO | ICANON | IXON); 
   /* Do not post process NL to CR+NL */
   term.c_oflag &= ~(OPOST);  
   
-  term.c_cc[VMIN] = 1;  // Read a mimium of 1 bytes
+  term.c_cc[VMIN] = 1;  // Read a minimum of 1 bytes
   term.c_cc[VTIME] = 0; // No wait
   tcsetattr(ttyin, TCSAFLUSH, &term);
 }
 
 int init_game()
 {
+  // Get the window size
   struct winsize ws;
   ioctl(ttyout, TIOCGWINSZ, &ws);
   g.tot_rows = ws.ws_row;
   g.tot_cols = ws.ws_col;
 
+  // This game uses a 'board' where all of the text is written
+  // to. Find the middle of the screen and use the game_*_factor
+  // values to get the actual size of the board window. We can 
+  // also align the board to be centered.
   int middlecols = g.tot_cols / 2;
   int middlerows = g.tot_rows / 2;
 
-  // Set up the game 
+  // Set up the game offsets
   g.sz_cols = g.tot_cols * game_width_factor;
   g.sz_rows = g.tot_rows * game_height_factor;
 
@@ -632,7 +647,7 @@ int init_game()
   g.fn = NULL;
   g.running = false;
 
-  // A general string for curser movement
+  // A general string for cursor movement
   cur_string = malloc(cur_string_sz * sizeof(char));
   if ( !cur_string) return -1;
   memset(cur_string, '\0', cur_string_sz);
@@ -657,16 +672,17 @@ int init_game()
   sl.score = g.st_cols;
   sl.tm    = g.end_cols - 11;
   
+  // Enter raw mode if all memory was allocated.
   raw_mode();
   setColor(NORMAL);
-  write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR));
-  write(ttyout, "\033[?25l", 6); // Hide curser
+  write(ttyout, "\033[?25l", 6); // Hide curse
 
   return 0;
 }
 
 int main()
 {
+  // If we get CTRL-C unexpected, clean up memory.
   signal(SIGINT, clean_up);
   init_game();
 
@@ -688,7 +704,7 @@ int main()
   clean_up();
   
   // Set the cursor at the bottom left of the screen on exit.
-  // Close all file descripters for valgrind error summary.
+  // Close all file descriptors for valgrind error summary.
   fclose(stdin);
   fclose(stdout);
   fclose(stderr);

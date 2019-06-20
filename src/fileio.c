@@ -119,7 +119,7 @@ int read_file_(const char* fname)
   }
 
   /*
-   * Input sanatization
+   * Input sanitation
    * 1) Remove all non-print letters
    * 2) No more than 1 space between words
    *
@@ -141,7 +141,7 @@ int read_file_(const char* fname)
   // TODO: What is our other ending option? What if the file is 100000 words?
   while ((c = fgetc(f)) != EOF) {
     if ( !inWord && (char)c != ' ' && isprint(c)) {
-      // Begining of a word.
+      // Beginning of a word.
       word[wordIndex++] = (char)c;
       inWord = true;
     }
