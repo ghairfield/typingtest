@@ -84,12 +84,18 @@ const char* game_settings[] = {
 /* 15 */     NULL };
 
 const char* welcome[] = {
-  "Another typing test - written in c99 with ASCII terminal codes.",
+  "A terminal typing test.",
   "Written by Greg Hairfield",
-  "Commands:",
-  "ESC - go back a screen                                 Q - Quit",
-  "L - Load a file                              S - Start the game", 
-  "M - Game settings                            CTRL-C - Quit game" };
+  "Options:                  ",
+  "ESC       Go back a screen",
+  "CTRL-C/Q              Quit",
+  "L              Load a file",
+  "S               Start game",
+  "M     Settings/Leaderboard",
+  "C     Conways Game of Life" };
+  
+const char* sl_score = "Score: %d / %d    Accuracy: %.2f %    Word Count: %d";
+const char* sl_time  = "Time: %ld s";
 
 void clean_up();
 
@@ -109,6 +115,8 @@ struct Game
   int lri;          /**< Line row index */
   int lci;          /**< Line column index  */
 
+  bool running;     /**< Is the game running? */
+
   char* fn;         /**< Current file name */
 } g;
 
@@ -125,16 +133,9 @@ struct Player
 
 struct StatusLine
 {
-  char* ln;         /**< This should be g.sz_cols in size */
-  int sz;           /**< Size of ln */
-
-  int st_cols;      /**< Column status line starts on */
   int st_rows;      /**< Row of the status line */
-  int tm;           /**< X position of the p.start */
-  int correct;      /**< X posistion of the p.correct */
-  int error;        /**< X position of p.error */
-  int words;        /**< X position of p.words */
-  float score;      /**< X position of p.score */
+  int tm;           /**< Offset of the p.start */
+  int score;        /**< Offset of sl_score */
 } sl;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -216,7 +217,10 @@ void display_welcome()
   offx = middlex - (strlen(welcome[2]) / 2);
   middley += 2;
   scbp(offx, middley);
+  write(ttyout, "\033[4m", 4);
   write(ttyout, welcome[2], strlen(welcome[2])); 
+  write(ttyout, "\033[0m", 4);
+  setColor(CYANONBLACK);
 
   offx = middlex - (strlen(welcome[3]) / 2);
   middley += 1;
@@ -232,6 +236,21 @@ void display_welcome()
   middley += 1;
   scbp(offx, middley);
   write(ttyout, welcome[5], strlen(welcome[5])); 
+
+  offx = middlex - (strlen(welcome[6]) / 2);
+  middley += 1;
+  scbp(offx, middley);
+  write(ttyout, welcome[6], strlen(welcome[6])); 
+
+  offx = middlex - (strlen(welcome[7]) / 2);
+  middley += 1;
+  scbp(offx, middley);
+  write(ttyout, welcome[7], strlen(welcome[7])); 
+
+  offx = middlex - (strlen(welcome[8]) / 2);
+  middley += 1;
+  scbp(offx, middley);
+  write(ttyout, welcome[8], strlen(welcome[8])); 
 
   setColor(NORMAL);
 }
@@ -304,9 +323,6 @@ void display_game_settings()
   scbp(startx, starty);
   sprintf(cur_string, game_settings[14], 1.23);
   write(ttyout, cur_string, strlen(string)); 
-
-  write(ttyout, "\033[1000B", 7);
-  write(ttyout, "\033[1000D", 7);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -342,19 +358,53 @@ void display_lines()
     write(ttyout, g.ln[startline]->ln, g.ln[startline]->sz);  
     scbp(0, ++startline * line_spacing);
   }
+  // Set the cursor back to the start
+  scbp(0, 0);
+}
+
+void update_sl_score()
+{
+  char str[100] = { '\0' };
+  write(ttyout, "\033[s", 3);
+  sprintf(str, "\033[%d;%df", sl.st_rows, sl.score);
+  write(ttyout, str, strlen(str));
+  setColor(MAGENTAONBLACK);
+  sprintf(str, sl_score, p.error, p.correct, 
+         100.0f - ((float)p.error / (float)p.correct) * 100.0, p.words);
+  write(ttyout, str, sizeof(str));
+  setColor(NORMAL);
+  write(ttyout, "\033[u", 3);
+}
+
+void update_sl_time()
+{
+  char str[100] = { '\0' };
+  time_t now = time(NULL);
+
+  write(ttyout, "\033[s", 3);
+  sprintf(str, "\033[%d;%df", sl.st_rows, sl.tm);
+  write(ttyout, str, strlen(str));
+
+  sprintf(str, sl_time, (long)now - (long)p.start);
+  setColor(BLUEONBLACK);
+  write(ttyout, str, strlen(str));
+  setColor(NORMAL);
+  write(ttyout, "\033[u", 3);
 }
 
 int run()
 {
   // Initilize 
-  p.start = clock();
   write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR)); 
+  write(ttyout, "\033[?25h", 6); // Show cursor
   display_lines();
-  scbp(0, 0); 
+  p.start = time(NULL);
+  bool inword = false;
 
   char c;
   while (1) {
     c = getInput();
+    update_sl_time();
 
     switch (c) {
       case EXIT:
@@ -398,6 +448,11 @@ int run()
           g.lci = 0;
           scbp(g.lci, g.lri * line_spacing);
         }
+
+        if (inword) {
+          ++p.words;
+          inword = false;
+        }
         break;
       default:
         // Check that the entered text matches and add approiate color
@@ -421,11 +476,23 @@ int run()
           write(ttyout, &g.ln[g.lri]->ln[g.lci], 1);
           setColor(NORMAL);
         }
+        if (inword && c == ' ') {
+          ++p.words;
+          inword = false;
+        }
+        else if ( !inword && isalnum(c)) {
+          inword = true;
+        }
 
-        if (g.lci < g.sz_cols) ++g.lci;
+        if (g.lci < g.sz_cols) { 
+          ++g.lci;
+          update_sl_score();
+        }
     }; 
   }
 
+  write(ttyout, "\033[?25l", 6); // Hide cursor
+  g.running = false;
   return c;
 }
 
@@ -457,7 +524,6 @@ int start_game()
       case 'Q':
       case 'q':
         exit = true;
-        clean_up();
         break;
       case 'S':
       case 's':
@@ -482,13 +548,15 @@ void clean_up()
    /* Flush the terminal upon exit, and reset the original terminal settings. */
   tcsetattr(ttyin, TCSAFLUSH, &orig_term);
 
+  // Clean up all the memory
   if (g.ln) {
     destroy_lines(g.ln, g.lsz);
     free(g.ln);
   }
+
   if (g.fn) free(g.fn);
 
-  free(cur_string);
+  if (cur_string) free(cur_string);
 
   if (p.input) {
     for (int i = 0; i < g.sz_rows; ++i) {
@@ -562,6 +630,7 @@ int init_game()
   g.lri = 0;
   g.lci = 0;
   g.fn = NULL;
+  g.running = false;
 
   // A general string for curser movement
   cur_string = malloc(cur_string_sz * sizeof(char));
@@ -582,34 +651,16 @@ int init_game()
     memset(p.input[i], '\0', g.sz_cols);
   }
 
-  // Set up the status line
-  sl.ln = malloc(g.sz_cols * sizeof(char));
-  if ( !ln) return -1;
-  sl.sz = g.sz_cols;
-  sl.st_cols = g.st_cols;
-
-  // Set the row of the status line
+  // Set the row of the status line at the top
   if (g.tot_rows - g.end_rows < 2) sl.st_rows = g.end_rows + 1;
   else sl.st_rows = (g.tot_rows - g.end_rows) / 2;
-
-
-struct StatusLine
-{
-  char* ln;         /**< This should be g.sz_cols in size */
-  int sz;           /**< Size of ln */
-
-  int st_cols;      /**< Column status line starts on */
-  int st_rows;      /**< Row of the status line */
-  int tm;           /**< X position of the p.start */
-  int correct;      /**< X posistion of the p.correct */
-  int error;        /**< X position of p.error */
-  int words;        /**< X position of p.words */
-  float score;      /**< X position of p.score */
-} sl;
-
+  sl.score = g.st_cols;
+  sl.tm    = g.end_cols - 11;
+  
   raw_mode();
   setColor(NORMAL);
   write(ttyout, CUR_CLEAR, strlen(CUR_CLEAR));
+  write(ttyout, "\033[?25l", 6); // Hide curser
 
   return 0;
 }
@@ -634,6 +685,7 @@ int main()
   // ************************************************
 
   start_game();
+  clean_up();
   
   // Set the cursor at the bottom left of the screen on exit.
   // Close all file descripters for valgrind error summary.
