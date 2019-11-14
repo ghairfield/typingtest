@@ -1,10 +1,3 @@
-/**
- * Greg Hairfield
- * A speed typing test. 
- * May 27, 2019
- */
-/*
-*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -13,87 +6,63 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <time.h>
+#include <assert.h>
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Global def's
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-enum KEYMAP {
-  CTRL_C = 3,   // ETX
-  BACK   = 8,   // Backspace
-  CR     = 13,  // Enter
-  CTRL_Q = 17,  // Quit
-  ESC    = 27,  // Escape 
-  DEL    = 127, // Delete 
-  EXIT   = 0    // Exit the program gracefuly.
-};
+#include "speedtest.h"
 
-enum COLORS {
-  NORMAL = 0,
-  GOOD,
-  WARN,
-  CRISIS,
-  BAD_INPUT,
-  COMPLETE
-};
-
-#define true 1
-#define false 0
-#define ttyin STDIN_FILENO
-#define ttyout STDOUT_FILENO
-
-struct Display
-{
-  int cols;
-  int rows;
-} d;
-
-struct Player
-{
-  int correct;
-  int error; 
-  int x, y;
-  double score;
-  clock_t start; 
-} p;
-
+/* These need to go.... */
 char** words = NULL;
 int fsize = 0;
 const int MAX_LINES = 500;
+struct Display d;
+struct Player p;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Helpers
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
+/*
+ * setColor
+ * Sets the current foreground and background color
+ * of what ever is about to be printed to the screen.
+ */
 void setColor(enum COLORS c)
 {
   switch (c) {
-    case NORMAL:
+    case NORMAL: /* White on Black */
       write(ttyout, "\033[37;40m", 8);
       break;
-    case GOOD:
+    case GOOD: /* Green on Black */
       write(ttyout, "\033[32;40m", 8);
       break;
-    case WARN:
+    case WARN: /* Yellow on Black */
       write(ttyout, "\033[33;40m", 8);
       break;
-    case CRISIS:
+    case CRISIS: /* Red on black */
       write(ttyout, "\033[31;40m", 8);
-      break;
-    case BAD_INPUT:
-      write(ttyout, "\033[30;41m", 8);
-      break;
-    case COMPLETE:
-      write(ttyout, "\033[1;40m", 7);
       break;
   };
 }
 
-void moveTo(int y, int x)
+/*
+ * moveCursorPositionTo
+ * Moves the cursor position to the x, y coordinates. Note 
+ * the coordinates are switched, to be in line with ncurses.
+ */
+void moveCursorPositionTo(int y, int x)
 {
   char pos[20] = { '\0' };
   sprintf(pos, "\033[%d;%dH", y, x);
   write(ttyout, pos, strlen(pos));
 }
+
+/*
+ * clearScreen
+ * Clears the screen and moved the cursor to the home position.
+ */
+static void clearScreen()
+{
+  write(ttyout, "\033[2J", 4);
+} 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Input handling
@@ -118,33 +87,10 @@ char getInput()
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Game
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-int screen()
-{
-  write(ttyout, "\033[2J", 4); // Clear the screen, move home.
-  write(ttyout, "\033[H", 3);  
-  for (int y = 0; y < d.rows - 1; ++y) {
-    for (int x = 0; x < d.cols; ++x) 
-      write(ttyout, &words[y][x], 1);
-
-    write(ttyout, "\033[B", 3);
-    write(ttyout, "\033[1000D", 7);
-  }
-
-  write(ttyout, "\033[H", 3); // Move home
-  return 0;
-}
 
 /* Assumes set up has been done and all is checked. */
 int run()
 {
-  // Initilize the user info
-  p.correct = 0;
-  p.error   = 0;
-  p.x       = 0;
-  p.y       = 0;
-  p.score   = 0;
-  p.start   = clock();
-
   char c;
   int linesize = strlen(words[0]);
   while (1) {
@@ -191,7 +137,7 @@ int run()
           setColor(NORMAL);
         }
         else {
-          setColor(BAD_INPUT);
+          setColor(CRISIS);
           write(ttyout, &words[p.y][p.x], 1);
           setColor(NORMAL);
         }
@@ -262,9 +208,13 @@ void raw_mode()
   term.c_cc[VTIME] = 0; // No wait
   tcsetattr(ttyin, TCSAFLUSH, &term);
 }
-
+/*
+ * This will probably be needed at some other time
+ * so it is being saved.
+ */
 int read_file()
 {
+  assert(0);
   FILE* f = fopen("data/test.txt", "r");
   if ( !f) {
     perror("Could not open file.");
@@ -276,21 +226,71 @@ int read_file()
    perror("Could not allocate memory.");
    return -1;
   }
-  for (int a = 0; a < MAX_LINES; ++a) *(words + a) = NULL;
-
-  int c;
-  int index;
+  for (int a = 0; a < MAX_LINES; ++a) 
+    *(words + a) = NULL;
+  
+  /*
+   * Input sanatization
+   * 1) Remove all non-print letters
+   * 2) No more than 1 space between words
+   *
+   * Getting the line
+   * 1. Get a line that is size of cols
+   * 2. Work backwards and find the last word
+   *    a) The last word occurs at the end of the line
+   *    b) The last word is broken between 2 lines
+   *      1) Back up to space, remove rest
+   *    c) There is a space between the first column and first word?
+   e 3. Cut the line off at the last space before a 1/2 word
+   * 4. Copy line to program 
+   * 5. repeat
+   */
+  
+  char* line = malloc(d.cols * sizeof(char));
+  memset(line, '\0', d.cols);
+  int index = 0;
+  int inword = false;
+  char c;
   for (int a = 0; a < MAX_LINES; ++a) {
-    *(words + a) = malloc(d.cols * sizeof(char));
-    memset(words[a], ' ', d.cols);
-    index = 0;
+    //Get the line
     while ((c = fgetc(f)) != EOF && index < d.cols) {
+      // We have a print character, check word
       if (isprint((char)c)) {
-        words[a][index++] = (char)c;
-      } else {
-        ++index;
+
+        if ((char)c == ' ' && inword) {
+          // At the end of a word.  
+          inword = false;
+          line[index++] = (char)c;
+        }
+        else if ((char)c == ' ' && !inword) {
+          // Not in a word, and an extra space
+          continue;
+        }
+        else {
+          if ( !inword) inword = true;
+          line[index++] = (char)c;
+        }
+      }
+      else if ((char)c == '\n' && inword) {
+        // Removing new lines from input file
+        line[index++] = ' ';
       }
     }
+      // Process line
+      --index;
+      int end = d.cols - 1;
+      if (inword) {
+        while (line[index--] != ' ') 
+          ;
+        
+        words[a] = malloc(d.cols * sizeof(char));
+        memset(words[a], '\0', d.cols);
+        strncpy(words[a], line, index);
+      } 
+      printf("%s", words[a]);
+      index = 0;
+      memset(line, '\0', d.cols);
+      fseek(f, end - index, SEEK_CUR);
   }
 
   fclose(f);
@@ -299,10 +299,12 @@ int read_file()
 
 int main()
 {
-  raw_mode();
-  if (read_file() == -1)  return -1;
-  screen();
-  run();
+  //raw_mode();
+  struct winsize ws;
+  ioctl(ttyout, TIOCGWINSZ, &ws);
+  d.rows = ws.ws_row;
+  d.cols = ws.ws_col;
+  //run();
 
   return 0;
 }
