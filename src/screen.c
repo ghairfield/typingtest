@@ -1,14 +1,15 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include <termios.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include <time.h>
-#include <assert.h>
 
-#include "speedtest.h"
+#include "screen.h"
+
+#define true 1
+#define false 0
+#define ttyin STDIN_FILENO
+#define ttyout STDOUT_FILENO
 
 /* These need to go.... */
 char** words = NULL;
@@ -28,26 +29,25 @@ struct Player p;
 void setColor(enum COLORS c)
 {
   switch (c) {
-    case NORMAL: /* White on Black */
-      write(ttyout, "\033[37;40m", 8);
-      break;
     case GOOD: /* Green on Black */
       write(ttyout, "\033[32;40m", 8);
       break;
     case WARN: /* Yellow on Black */
       write(ttyout, "\033[33;40m", 8);
       break;
-    case CRISIS: /* Red on black */
+    case DANGER: /* Red on black */
       write(ttyout, "\033[31;40m", 8);
+      break;
+    case INPUTERR: /* White on red */
+      write(ttyout, "\033[33;41m", 8);
+      break;
+    case NORMAL: /* White on Black */
+    default:
+      write(ttyout, "\033[37;40m", 8);
       break;
   };
 }
 
-/*
- * moveCursorPositionTo
- * Moves the cursor position to the x, y coordinates. Note 
- * the coordinates are switched, to be in line with ncurses.
- */
 void moveCursorPositionTo(int y, int x)
 {
   char pos[20] = { '\0' };
@@ -55,11 +55,7 @@ void moveCursorPositionTo(int y, int x)
   write(ttyout, pos, strlen(pos));
 }
 
-/*
- * clearScreen
- * Clears the screen and moved the cursor to the home position.
- */
-static void clearScreen()
+void clearScreen()
 {
   write(ttyout, "\033[2J", 4);
 } 
@@ -137,7 +133,7 @@ int run()
           setColor(NORMAL);
         }
         else {
-          setColor(CRISIS);
+          setColor(INPUTERR);
           write(ttyout, &words[p.y][p.x], 1);
           setColor(NORMAL);
         }
@@ -154,19 +150,21 @@ int run()
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 struct termios orig_term;
 
-void clean_up()
+void screenDestroy()
 {
   /* Flush the terminal upon exit, and reset the original terminal settings. */
   tcsetattr(ttyin, TCSAFLUSH, &orig_term);
 
+  /*
   for (int a = 0; a < MAX_LINES; ++a) {
     if (words[a]) free(words[a]);
   }
 
   free(words);
+  */
 }
 
-void raw_mode()
+static void rawMode()
 {
   /*
    * We can turn on raw mode with
@@ -189,7 +187,7 @@ void raw_mode()
   }
   // Copy the original terminal settings so they can be set upon exit
   tcgetattr(ttyin, &orig_term); 
-  atexit(clean_up); // declared in stdlib.h       
+  atexit(screenDestroy); 
 
   struct termios term = orig_term;
   /* Trun off break (enter CBREAK)
@@ -208,6 +206,13 @@ void raw_mode()
   term.c_cc[VTIME] = 0; // No wait
   tcsetattr(ttyin, TCSAFLUSH, &term);
 }
+
+void screenInit()
+{
+  rawMode();
+}
+
+
 /*
  * This will probably be needed at some other time
  * so it is being saved.
@@ -294,17 +299,5 @@ int read_file()
   }
 
   fclose(f);
-  return 0;
-}
-
-int main()
-{
-  //raw_mode();
-  struct winsize ws;
-  ioctl(ttyout, TIOCGWINSZ, &ws);
-  d.rows = ws.ws_row;
-  d.cols = ws.ws_col;
-  //run();
-
   return 0;
 }
