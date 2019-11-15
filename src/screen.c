@@ -1,4 +1,3 @@
-#include <ctype.h>
 #include <string.h>
 #include <termios.h>
 #include <sys/ioctl.h>
@@ -10,13 +9,6 @@
 #define false 0
 #define ttyin STDIN_FILENO
 #define ttyout STDOUT_FILENO
-
-/* These need to go.... */
-char** words = NULL;
-int fsize = 0;
-const int MAX_LINES = 500;
-struct Display d;
-struct Player p;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Helpers
@@ -63,7 +55,6 @@ void clearScreen()
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Input handling
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 /* We ignore most input that doesn't apply to this program. */
 char getInput()
 {
@@ -78,71 +69,6 @@ char getInput()
   if (c_in == DEL || c_in == BACK) return DEL; // Backspace
 
   return c_in; // Regular character
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Game
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-/* Assumes set up has been done and all is checked. */
-int run()
-{
-  char c;
-  int linesize = strlen(words[0]);
-  while (1) {
-    c = getInput();
-
-    switch (c) {
-      case EXIT:
-        return 0;
-        break;
-      case DEL:
-        if (p.x <= 0) {
-          // We are at the left most position on the screen
-          if (p.y > 0) {
-            char position[12] = { '\0' };
-            linesize = strlen(words[p.y]);
-            p.x = linesize;
-            --p.y;
-            write(ttyout, "\033[A", 3);
-            sprintf(position, "\033[%dC", p.x);
-            write(ttyout, position, strlen(position));
-            write(ttyout, &words[p.y][p.x], 1);
-          }
-        }
-        else {
-          // At some position in the line
-          write(ttyout, "\033[D", 3);
-          write(ttyout, &words[p.y][--p.x], 1);
-          write(ttyout, "\033[D", 3);
-        } 
-        break;
-      case CR:
-        // TODO: Verify word
-        if (p.y < d.rows) {
-          write(ttyout, "\033[B", 3);
-          write(ttyout, "\033[1000D", 7);
-          ++p.y;
-          p.x = 0;
-        }
-        break;
-      default:
-        if (c == words[p.y][p.x]) {
-          setColor(GOOD);
-          write(ttyout, &words[p.y][p.x], 1);
-          setColor(NORMAL);
-        }
-        else {
-          setColor(INPUTERR);
-          write(ttyout, &words[p.y][p.x], 1);
-          setColor(NORMAL);
-        }
-
-        if (p.x < d.cols) ++p.x;
-    }; 
-  }
-
-  return c;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -178,8 +104,12 @@ static void rawMode()
    */
   struct winsize ws;
   ioctl(ttyout, TIOCGWINSZ, &ws);
-  d.rows = ws.ws_row;
-  d.cols = ws.ws_col;
+  /* TODO
+   * d.rows = ws.ws_row;
+   * d.cols = ws.ws_col;
+   * Need to add these back in!!!!
+   * TODO
+   */
 
   if ( !isatty(ttyin)) {
     fprintf(stderr, "This is not a tty.\n");
@@ -210,94 +140,4 @@ static void rawMode()
 void screenInit()
 {
   rawMode();
-}
-
-
-/*
- * This will probably be needed at some other time
- * so it is being saved.
- */
-int read_file()
-{
-  assert(0);
-  FILE* f = fopen("data/test.txt", "r");
-  if ( !f) {
-    perror("Could not open file.");
-    return -1;
-  }
-
-  words = malloc(MAX_LINES * sizeof(char*));
-  if ( !words) {
-   perror("Could not allocate memory.");
-   return -1;
-  }
-  for (int a = 0; a < MAX_LINES; ++a) 
-    *(words + a) = NULL;
-  
-  /*
-   * Input sanatization
-   * 1) Remove all non-print letters
-   * 2) No more than 1 space between words
-   *
-   * Getting the line
-   * 1. Get a line that is size of cols
-   * 2. Work backwards and find the last word
-   *    a) The last word occurs at the end of the line
-   *    b) The last word is broken between 2 lines
-   *      1) Back up to space, remove rest
-   *    c) There is a space between the first column and first word?
-   e 3. Cut the line off at the last space before a 1/2 word
-   * 4. Copy line to program 
-   * 5. repeat
-   */
-  
-  char* line = malloc(d.cols * sizeof(char));
-  memset(line, '\0', d.cols);
-  int index = 0;
-  int inword = false;
-  char c;
-  for (int a = 0; a < MAX_LINES; ++a) {
-    //Get the line
-    while ((c = fgetc(f)) != EOF && index < d.cols) {
-      // We have a print character, check word
-      if (isprint((char)c)) {
-
-        if ((char)c == ' ' && inword) {
-          // At the end of a word.  
-          inword = false;
-          line[index++] = (char)c;
-        }
-        else if ((char)c == ' ' && !inword) {
-          // Not in a word, and an extra space
-          continue;
-        }
-        else {
-          if ( !inword) inword = true;
-          line[index++] = (char)c;
-        }
-      }
-      else if ((char)c == '\n' && inword) {
-        // Removing new lines from input file
-        line[index++] = ' ';
-      }
-    }
-      // Process line
-      --index;
-      int end = d.cols - 1;
-      if (inword) {
-        while (line[index--] != ' ') 
-          ;
-        
-        words[a] = malloc(d.cols * sizeof(char));
-        memset(words[a], '\0', d.cols);
-        strncpy(words[a], line, index);
-      } 
-      printf("%s", words[a]);
-      index = 0;
-      memset(line, '\0', d.cols);
-      fseek(f, end - index, SEEK_CUR);
-  }
-
-  fclose(f);
-  return 0;
 }

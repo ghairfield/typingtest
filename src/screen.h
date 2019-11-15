@@ -3,9 +3,6 @@
 #include <time.h>
 #include <assert.h>
 
-
-
-
 enum KEYMAP {
   CTRL_C = 3,   /* ETX - quit */
   BACK   = 8,   /* Backspace */
@@ -28,6 +25,15 @@ struct Display
 {
   int cols;
   int rows;
+  /*
+   * TODO ADD:
+   * maxCols
+   * maxRows
+   * x,y location of input
+   * x,y location of score
+   * x,y location of timer
+   * size of board
+   */
 };
 
 struct Player
