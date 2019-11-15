@@ -3,12 +3,13 @@
 A work in progress.
 > 14-Nov-2019: Doing some updates. Would like to make the words move from left
 to right across the screen. 
-Current todo list:
+Current todo list (in no order):
 - [ ] Move speedtest.[c|h] to screen.[c|h]
+- [ ] Python app to make the word list 
+- [ ] Word list. Easy, medium, hard
 - [ ] Refactor screen functions
 - [ ] Data structure for words on screen
 - [ ] Way to update screen only when necessary
-- [ ] Word list. Easy, medium, hard
 - [ ] Figure out location of game stats
 - [ ] Save game? High score?
 
