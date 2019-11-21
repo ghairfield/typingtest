@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <unistd.h>
 #include <time.h>
 #include <assert.h>
 
@@ -201,6 +202,22 @@ struct Display
   /* Location of timer */
   uint16_t timerX, timerY;
 };
+
+static inline void setCursorOn()
+{
+  write(STDOUT_FILENO, "\033[?25h", 6);
+} 
+static inline void setCursorOff()
+{
+  write(STDOUT_FILENO, "\033[?25l", 6);
+} 
+
+static inline void getMaxYX(int *y, int *x)
+{
+  extern struct Display d;
+  *x = d.maxCols;
+  *y = d.maxRows;
+}
 
 struct Player
 {

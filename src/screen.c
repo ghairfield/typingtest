@@ -23,11 +23,6 @@ void moveCursorTo(int y, int x)
   write(ttyout, pos, strlen(pos));
 }
 
-void clearScreen()
-{
-  write(ttyout, "\033[2J", 4);
-} 
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Write
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -36,8 +31,13 @@ static void writeColorProfile(enum COLORS c)
 {
   switch (c)
   {
+    /* Color BLACK on XX */
     case COLOR_BLK_ON_BLK:
-      write(ttyout, "\033[30;40m", 8);
+      /* XXX Currently: The colors X on X are replaced with the 
+       * default color White on Black. I don't think there is a
+       * point in displaying nothing.
+       */
+      write(ttyout, "\033[37;40m", 8);
       break;
     case COLOR_BLK_ON_RED:
       write(ttyout, "\033[30;41m", 8);
@@ -60,9 +60,35 @@ static void writeColorProfile(enum COLORS c)
     case COLOR_BLK_ON_WHT:
       write(ttyout, "\033[30;47m", 8);
       break;
+    /* Color RED on XX */
+    case COLOR_RED_ON_BLK:
+      write(ttyout, "\033[31;40m", 8);
+      break;
+    case COLOR_RED_ON_RED:
+      write(ttyout, "\033[37;40m", 8);
+      break;
+    case COLOR_RED_ON_GRN:
+      write(ttyout, "\033[31;42m", 8);
+      break;
+    case COLOR_RED_ON_YLW:
+      write(ttyout, "\033[31;43m", 8);
+      break;
+    case COLOR_RED_ON_BLU:
+      write(ttyout, "\033[31;44m", 8);
+      break;
+    case COLOR_RED_ON_MAG:
+      write(ttyout, "\033[31;45m", 8);
+      break;
+    case COLOR_RED_ON_CYN:
+      write(ttyout, "\033[31;46m", 8);
+      break;
+    case COLOR_RED_ON_WHT:
+      write(ttyout, "\033[31;47m", 8);
+      break;
 
       /* TODO Add rest of colors.... */
 
+    /* Color WHITE on XX */
     case COLOR_WHT_ON_BLK:
       write(ttyout, "\033[37;40m", 8);
       break;
@@ -85,14 +111,14 @@ static void writeColorProfile(enum COLORS c)
       write(ttyout, "\033[37;46m", 8);
       break;
     case COLOR_WHT_ON_WHT:
-      write(ttyout, "\033[37;47m", 8);
+      write(ttyout, "\033[37;40m", 8);
       break;
   }; 
 } 
 
-int writeString(const char* content, unsigned int size)
+void clearScreen()
 {
-  return write(ttyout, content, size);
+  write(ttyout, "\033[2J", 4);
 } 
 
 int writeCharacter(uint16_t content)
@@ -101,6 +127,16 @@ int writeCharacter(uint16_t content)
   return write(ttyout, &content, 1);
 } 
 
+int writeString(const char* content, unsigned int size)
+{
+  int a = 0;
+  for (int i = 0; i < size; ++i) 
+  {
+    a += writeCharacter(content[i]);
+  } 
+ 
+  return a; 
+} 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Input handling
