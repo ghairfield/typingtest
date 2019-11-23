@@ -1,19 +1,21 @@
 .PHONY: run clean
 
 CC=gcc
-FLAGS=-Wall -Wextra -g
+CFLAGS=-Wall -Wextra -g
+vpath %.c src
+vpath %.h src
 
-spd : screen.o main.o
-	$(CC) $(FLAGS) $^ -o $@
+spd : main.o screen.o
+	$(CC) $(CFLAGS) -o $@ $^
 
-main.o : src/main.c src/screen.h
-	$(CC) $(FLAGS) -c $< -o $@
+main.o : main.c screen.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-screen.o : src/screen.c src/screen.h
-	$(CC) $(FLAGS) -c $< -o $@
+screen.o : screen.c screen.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm spd screen.o main.o
+	rm spd main.o screen.o	
 
 run : 
 	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./spd

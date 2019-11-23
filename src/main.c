@@ -1,4 +1,5 @@
 #include "screen.h"
+
 #include <string.h>
 
 void test_displayScreenCoords();
