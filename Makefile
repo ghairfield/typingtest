@@ -11,7 +11,7 @@ spd : main.o game.o screen.o
 main.o : main.c game.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-game.o : game.c game.h screen.h timer.h
+game.o : game.c game.h screen.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 screen.o : screen.c screen.h
