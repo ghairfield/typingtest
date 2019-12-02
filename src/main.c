@@ -1,3 +1,4 @@
+#include "game.h"
 #include "screen.h"
 
 #include <string.h>
@@ -6,22 +7,19 @@ void test_displayScreenCoords();
 
 int main()
 {
-  screenInit();
-  setCursorOff();
-  test_displayScreenCoords();
-
-  char c;
-  while ((c = getInput()) != EXIT)
-    ;
-  screenDestroy();
+  start_game(); 
+//  test_displayScreenCoords();
 
   return 0;
 }
 
 void test_displayScreenCoords()
 {
+  screenInit(); 
+
   int x, y;
   getMaxYX(&y, &x);
+  setCursorOff();
   clearScreen();
   char topL[] = "0,0";
   char topR[10] = { '\0' };
@@ -31,7 +29,7 @@ void test_displayScreenCoords()
   sprintf(botL, "%d,%d", 0, y);
   sprintf(botR, "%d,%d", x, y);
 
-  moveCursorTo(0, 0);
+  moveCursorTo(1, 1);
   writeString(topL, strlen(topL));
 
   int s;
@@ -46,4 +44,15 @@ void test_displayScreenCoords()
   s = strlen(botR);
   moveCursorTo(y, x - s + 1);
   writeString(botR, strlen(botR));
+
+  char msg[] = "C_c to exit";
+  int size = strlen(msg);
+  int halfx = x / 2;
+  int halfy = y / 2;
+  moveCursorTo(halfy, halfx - (size / 2));
+  writeString(msg, size);
+
+  char c;
+  while ((c = getInput()) != EXIT)
+    ;
 } 

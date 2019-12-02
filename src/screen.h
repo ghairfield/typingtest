@@ -141,12 +141,16 @@ static inline uint16_t setBackgroundColor(int16_t n, enum BG_COLOR c)
   return n;
 } 
 
+uint16_t * setString(const char * s, size_t sz, enum COLORS c);
+
 static inline uint16_t setCharacter(uint16_t n, char c)
 {
   n &= COLOR_MASK;
   n |= c & CHAR_MASK;
   return n;
 } 
+
+char * getString(const char * s, size_t sz);
 
 static inline char getCharacter(uint16_t n)
 {
@@ -179,13 +183,19 @@ struct Screen
 */
 
 enum KEYMAP {
+  EXIT   = 0,   /* Exit the program gracefuly. */
   CTRL_C = 3,   /* ETX - quit */
   BACK   = 8,   /* Backspace */
   CR     = 13,  /* Enter */
   CTRL_Q = 17,  /* Quit */
   ESC    = 27,  /* Escape */
   DEL    = 127, /* Delete */
-  EXIT   = 0    /* Exit the program gracefuly. */
+
+  /* Program defined mappings */
+  ARROW_U = 1000,
+  ARROW_D = 1001,
+  ARROW_L = 1002,
+  ARROW_R = 1003,
 };
 
 struct Display

@@ -23,6 +23,23 @@ void moveCursorTo(int y, int x)
   write(ttyout, pos, strlen(pos));
 }
 
+uint16_t * setString(const char * s, size_t sz, enum COLORS c)
+{
+  uint16_t *str = malloc(sizeof(uint16_t) * (sz + 1));
+  memset(str, '\0', sz + 1);
+  if (!str) {
+    // TODO Some error code or something
+    return NULL;
+  }
+
+  for (int i = 0; i < sz; ++i) {
+    str[i] |= c | s[i]; 
+  } 
+
+  return str;
+}
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Write
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -144,7 +161,7 @@ int writeString(const char* content, unsigned int size)
 
 char getInput()
 {
-  char c_in;
+  char c_in = -1;
   int bytes;
 
   /* We ignore most input that doesn't apply to this program. */
@@ -209,9 +226,9 @@ static void rawMode()
   /* Do not ost process NL to CR+NL */
   term.c_oflag &= ~(OPOST);  
   
-  term.c_cc[VMIN] = 1;  /* Read a mimium of 1 bytes */
-  term.c_cc[VTIME] = 0; /* No wait */
-  tcsetattr(ttyin, TCSAFLUSH, &term);
+  term.c_cc[VMIN] = 0;  /* Read a mimium of 0 bytes */
+  term.c_cc[VTIME] = 0; /* No wait for input */
+  tcsetattr(ttyin, TCSANOW, &term);
 }
 
 void screenInit()
