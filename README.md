@@ -10,15 +10,14 @@ Keys:
   ```
   CTRL-C / Q: Quite the game  
   Escape    : Go back a screen  
-  M         : Game settings  
+  M         : Game settings (todo)
   L         : Load a typing file (todo)  
   S         : Start game  
-  C         : Conways game of life (why not)  
   ```
 Current todo list (in no order):
-- [ ] Move speedtest.[c|h] to screen.[c|h]
-- [ ] Python app to make the word list 
-- [ ] Character encoding that encodes the character and color values
+- [X] Move speedtest.[c|h] to screen.[c|h]
+- [X] Python app to make the word list 
+- [X] Character encoding that encodes the character and color values
 - [ ] Word list. Easy, medium, hard
 - [ ] Refactor screen functions
 - [ ] Data structure for words on screen
