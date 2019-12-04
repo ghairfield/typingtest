@@ -1,8 +1,8 @@
 # Typing test game
 
 A work in progress.
-> 14-Nov-2019: Doing some updates. Would like to make the words move from left
-to right across the screen. 
+> 14-Nov-2019: Doing some updates. Would like to make the words from top
+> to bottom like tetris. The speed will change over time. 
 
 Usage: spd 
 
@@ -19,11 +19,14 @@ Current todo list (in no order):
 - [X] Python app to make the word list 
 - [X] Character encoding that encodes the character and color values
 - [ ] Word list. Easy, medium, hard
-- [ ] Refactor screen functions
+- [ ] Refactor screen functions. Need special case for 80x20
 - [ ] Data structure for words on screen
 - [ ] Way to update screen only when necessary
 - [ ] Figure out location of game stats
 - [ ] Save game? High score?
+- [ ] Scale game if screen size changes
+- [ ] Change game speed depending on size
+- [ ] Colors should change back to default after writing.
 
 #### Reason
 I wanted to make a game using low level terminal functions. This program is done

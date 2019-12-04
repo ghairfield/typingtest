@@ -1,3 +1,6 @@
+#ifndef SCREEN_H_
+#define SCREEN_H_
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -25,7 +28,6 @@
 enum COLORS
 {
   /* Black foregound on X */
-  COLOR_BLK_ON_BLK = 0x0000,
   COLOR_BLK_ON_RED = 0x0100,
   COLOR_BLK_ON_GRN = 0x0200,
   COLOR_BLK_ON_YLW = 0x0300,
@@ -35,7 +37,6 @@ enum COLORS
   COLOR_BLK_ON_WHT = 0x0700,
   /* Red foregounrd on X */ 
   COLOR_RED_ON_BLK = 0x1000,
-  COLOR_RED_ON_RED = 0x1100,
   COLOR_RED_ON_GRN = 0x1200,
   COLOR_RED_ON_YLW = 0x1300,
   COLOR_RED_ON_BLU = 0x1400,
@@ -45,7 +46,6 @@ enum COLORS
   /* Green foregound on X */
   COLOR_GRN_ON_BLK = 0x2000,
   COLOR_GRN_ON_RED = 0x2100,
-  COLOR_GRN_ON_GRN = 0x2200,
   COLOR_GRN_ON_YLW = 0x2300,
   COLOR_GRN_ON_BLU = 0x2400,
   COLOR_GRN_ON_MAG = 0x2500,
@@ -55,7 +55,6 @@ enum COLORS
   COLOR_YLW_ON_BLK = 0x3000,
   COLOR_YLW_ON_RED = 0x3100,
   COLOR_YLW_ON_GRN = 0x3200,
-  COLOR_YLW_ON_YLW = 0x3300,
   COLOR_YLW_ON_BLU = 0x3400,
   COLOR_YLW_ON_MAG = 0x3500,
   COLOR_YLW_ON_CYN = 0x3600,
@@ -65,7 +64,6 @@ enum COLORS
   COLOR_BLU_ON_RED = 0x4100,
   COLOR_BLU_ON_GRN = 0x4200,
   COLOR_BLU_ON_YLW = 0x4300,
-  COLOR_BLU_ON_BLU = 0x4400,
   COLOR_BLU_ON_MAG = 0x4500,
   COLOR_BLU_ON_CYN = 0x4600,
   COLOR_BLU_ON_WHT = 0x4700,
@@ -75,7 +73,6 @@ enum COLORS
   COLOR_MAG_ON_GRN = 0x5200,
   COLOR_MAG_ON_YLW = 0x5300,
   COLOR_MAG_ON_BLU = 0x5400,
-  COLOR_MAG_ON_MAG = 0x5500,
   COLOR_MAG_ON_CYN = 0x5600,
   COLOR_MAG_ON_WHT = 0x5700,
   /* Cyan foreground on X */
@@ -85,7 +82,6 @@ enum COLORS
   COLOR_CYN_ON_YLW = 0x6300,
   COLOR_CYN_ON_BLU = 0x6400,
   COLOR_CYN_ON_MAG = 0x6500,
-  COLOR_CYN_ON_CYN = 0x6600,
   COLOR_CYN_ON_WHT = 0x6700,
   /* White foregound on X */
   COLOR_WHT_ON_BLK = 0x7000,
@@ -95,7 +91,6 @@ enum COLORS
   COLOR_WHT_ON_BLU = 0x7400,
   COLOR_WHT_ON_MAG = 0x7500,
   COLOR_WHT_ON_CYN = 0x7600,
-  COLOR_WHT_ON_WHT = 0x7700
 }; 
 enum FG_COLOR
 {
@@ -149,6 +144,13 @@ static inline uint16_t setCharacter(uint16_t n, char c)
   n |= c & CHAR_MASK;
   return n;
 } 
+
+static inline uint16_t makeCharacter(char c, enum COLORS co)
+{
+  uint16_t r = 0;
+  r |= c | co;
+  return r;
+}
 
 char * getString(const char * s, size_t sz);
 
@@ -289,3 +291,5 @@ char getInput();
  */
 int writeString(const char* content, unsigned int size);
 int writeCharacter(uint16_t content);
+
+#endif /* Include guard */

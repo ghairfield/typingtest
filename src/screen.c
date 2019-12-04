@@ -48,88 +48,70 @@ static void writeColorProfile(enum COLORS c)
 {
   switch (c)
   {
-    /* Color BLACK on XX */
-    case COLOR_BLK_ON_BLK:
-      /* XXX Currently: The colors X on X are replaced with the 
-       * default color White on Black. I don't think there is a
-       * point in displaying nothing.
-       */
-      write(ttyout, "\033[37;40m", 8);
-      break;
-    case COLOR_BLK_ON_RED:
-      write(ttyout, "\033[30;41m", 8);
-      break;
-    case COLOR_BLK_ON_GRN:
-      write(ttyout, "\033[30;42m", 8);
-      break;
-    case COLOR_BLK_ON_YLW:
-      write(ttyout, "\033[30;43m", 8);
-      break;
-    case COLOR_BLK_ON_BLU:
-      write(ttyout, "\033[30;44m", 8);
-      break;
-    case COLOR_BLK_ON_MAG:
-      write(ttyout, "\033[30;45m", 8);
-      break;
-    case COLOR_BLK_ON_CYN:
-      write(ttyout, "\033[30;46m", 8);
-      break;
-    case COLOR_BLK_ON_WHT:
-      write(ttyout, "\033[30;47m", 8);
-      break;
-    /* Color RED on XX */
-    case COLOR_RED_ON_BLK:
-      write(ttyout, "\033[31;40m", 8);
-      break;
-    case COLOR_RED_ON_RED:
-      write(ttyout, "\033[37;40m", 8);
-      break;
-    case COLOR_RED_ON_GRN:
-      write(ttyout, "\033[31;42m", 8);
-      break;
-    case COLOR_RED_ON_YLW:
-      write(ttyout, "\033[31;43m", 8);
-      break;
-    case COLOR_RED_ON_BLU:
-      write(ttyout, "\033[31;44m", 8);
-      break;
-    case COLOR_RED_ON_MAG:
-      write(ttyout, "\033[31;45m", 8);
-      break;
-    case COLOR_RED_ON_CYN:
-      write(ttyout, "\033[31;46m", 8);
-      break;
-    case COLOR_RED_ON_WHT:
-      write(ttyout, "\033[31;47m", 8);
-      break;
-
-      /* TODO Add rest of colors.... */
-
-    /* Color WHITE on XX */
-    case COLOR_WHT_ON_BLK:
-      write(ttyout, "\033[37;40m", 8);
-      break;
-    case COLOR_WHT_ON_RED:
-      write(ttyout, "\033[37;41m", 8);
-      break;
-    case COLOR_WHT_ON_GRN:
-      write(ttyout, "\033[37;42m", 8);
-      break;
-    case COLOR_WHT_ON_YLW:
-      write(ttyout, "\033[37;43m", 8);
-      break;
-    case COLOR_WHT_ON_BLU:
-      write(ttyout, "\033[37;44m", 8);
-      break;
-    case COLOR_WHT_ON_MAG:
-      write(ttyout, "\033[37;45m", 8);
-      break;
-    case COLOR_WHT_ON_CYN:
-      write(ttyout, "\033[37;46m", 8);
-      break;
-    case COLOR_WHT_ON_WHT:
-      write(ttyout, "\033[37;40m", 8);
-      break;
+    /* Black foregound on X */
+    case COLOR_BLK_ON_RED: write(ttyout, "\033[30;41m", 8); break;
+    case COLOR_BLK_ON_GRN: write(ttyout, "\033[30;42m", 8); break;
+    case COLOR_BLK_ON_YLW: write(ttyout, "\033[30;43m", 8); break;
+    case COLOR_BLK_ON_BLU: write(ttyout, "\033[30;44m", 8); break;
+    case COLOR_BLK_ON_MAG: write(ttyout, "\033[30;45m", 8); break;
+    case COLOR_BLK_ON_CYN: write(ttyout, "\033[30;46m", 8); break;
+    case COLOR_BLK_ON_WHT: write(ttyout, "\033[30;47m", 8); break;
+    /* Red foregound on X */
+    case COLOR_RED_ON_BLK: write(ttyout, "\033[31;40m", 8); break;
+    case COLOR_RED_ON_GRN: write(ttyout, "\033[31;42m", 8); break;
+    case COLOR_RED_ON_YLW: write(ttyout, "\033[31;43m", 8); break;
+    case COLOR_RED_ON_BLU: write(ttyout, "\033[31;44m", 8); break;
+    case COLOR_RED_ON_MAG: write(ttyout, "\033[31;45m", 8); break;
+    case COLOR_RED_ON_CYN: write(ttyout, "\033[31;46m", 8); break;
+    case COLOR_RED_ON_WHT: write(ttyout, "\033[31;47m", 8); break;
+    /* Green foregound on X */
+    case COLOR_GRN_ON_BLK: write(ttyout, "\033[32;40m", 8); break;
+    case COLOR_GRN_ON_RED: write(ttyout, "\033[32;40m", 8); break;
+    case COLOR_GRN_ON_YLW: write(ttyout, "\033[32;40m", 8); break;
+    case COLOR_GRN_ON_BLU: write(ttyout, "\033[32;40m", 8); break;
+    case COLOR_GRN_ON_MAG: write(ttyout, "\033[32;40m", 8); break;
+    case COLOR_GRN_ON_CYN: write(ttyout, "\033[32;40m", 8); break;
+    case COLOR_GRN_ON_WHT: write(ttyout, "\033[32;40m", 8); break;
+    /* Yellow foregound on X */
+    case COLOR_YLW_ON_BLK: write(ttyout, "\033[33;40m", 8); break;
+    case COLOR_YLW_ON_RED: write(ttyout, "\033[33;40m", 8); break;
+    case COLOR_YLW_ON_GRN: write(ttyout, "\033[33;40m", 8); break;
+    case COLOR_YLW_ON_BLU: write(ttyout, "\033[33;40m", 8); break;
+    case COLOR_YLW_ON_MAG: write(ttyout, "\033[33;40m", 8); break;
+    case COLOR_YLW_ON_CYN: write(ttyout, "\033[33;40m", 8); break;
+    case COLOR_YLW_ON_WHT: write(ttyout, "\033[33;40m", 8); break;
+    /* Blue foregound on X */ 
+    case COLOR_BLU_ON_BLK: write(ttyout, "\033[34;40m", 8); break;
+    case COLOR_BLU_ON_RED: write(ttyout, "\033[34;40m", 8); break;
+    case COLOR_BLU_ON_GRN: write(ttyout, "\033[34;40m", 8); break;
+    case COLOR_BLU_ON_YLW: write(ttyout, "\033[34;40m", 8); break;
+    case COLOR_BLU_ON_MAG: write(ttyout, "\033[34;40m", 8); break;
+    case COLOR_BLU_ON_CYN: write(ttyout, "\033[34;40m", 8); break;
+    case COLOR_BLU_ON_WHT: write(ttyout, "\033[34;40m", 8); break;
+    /* Magintia foreground on X */
+    case COLOR_MAG_ON_BLK: write(ttyout, "\033[35;40m", 8); break;
+    case COLOR_MAG_ON_RED: write(ttyout, "\033[35;40m", 8); break;
+    case COLOR_MAG_ON_GRN: write(ttyout, "\033[35;40m", 8); break;
+    case COLOR_MAG_ON_YLW: write(ttyout, "\033[35;40m", 8); break;
+    case COLOR_MAG_ON_BLU: write(ttyout, "\033[35;40m", 8); break;
+    case COLOR_MAG_ON_CYN: write(ttyout, "\033[35;40m", 8); break;
+    case COLOR_MAG_ON_WHT: write(ttyout, "\033[35;40m", 8); break;
+    /* Cyan foreground on X */
+    case COLOR_CYN_ON_BLK: write(ttyout, "\033[36;40m", 8); break;
+    case COLOR_CYN_ON_RED: write(ttyout, "\033[36;40m", 8); break;
+    case COLOR_CYN_ON_GRN: write(ttyout, "\033[36;40m", 8); break;
+    case COLOR_CYN_ON_YLW: write(ttyout, "\033[36;40m", 8); break;
+    case COLOR_CYN_ON_BLU: write(ttyout, "\033[36;40m", 8); break;
+    case COLOR_CYN_ON_MAG: write(ttyout, "\033[36;40m", 8); break;
+    case COLOR_CYN_ON_WHT: write(ttyout, "\033[36;40m", 8); break;
+    /* White forground on X */
+    case COLOR_WHT_ON_BLK: write(ttyout, "\033[37;40m", 8); break;
+    case COLOR_WHT_ON_RED: write(ttyout, "\033[37;41m", 8); break;
+    case COLOR_WHT_ON_GRN: write(ttyout, "\033[37;42m", 8); break;
+    case COLOR_WHT_ON_YLW: write(ttyout, "\033[37;43m", 8); break;
+    case COLOR_WHT_ON_BLU: write(ttyout, "\033[37;44m", 8); break;
+    case COLOR_WHT_ON_MAG: write(ttyout, "\033[37;45m", 8); break;
+    case COLOR_WHT_ON_CYN: write(ttyout, "\033[37;46m", 8); break;
   }; 
 } 
 
@@ -142,8 +124,10 @@ int writeCharacter(uint16_t content)
 {
   writeColorProfile(getColor(content));
   return write(ttyout, &content, 1);
+  
 } 
 
+// TODO move to uint16_t
 int writeString(const char* content, unsigned int size)
 {
   int a = 0;
