@@ -92,6 +92,12 @@ enum COLORS
   COLOR_WHT_ON_MAG = 0x7500,
   COLOR_WHT_ON_CYN = 0x7600,
 }; 
+
+/*
+ * The below color stuff is on the chopping block. I don't 
+ * think it is needed now that I moved the writeColorProfile
+ * function to public. 
+ */
 enum FG_COLOR
 {
   FG_COLOR_BLK = 0x0000,
@@ -103,6 +109,7 @@ enum FG_COLOR
   FG_COLOR_CYN = 0x6000,
   FG_COLOR_WHT = 0x7000
 };
+
 enum BG_COLOR
 {
   BG_COLOR_BLK = 0x0000,
@@ -200,20 +207,6 @@ enum KEYMAP {
   ARROW_R = 1003,
 };
 
-struct Display
-{
-  /* Size of the terminal */
-  uint16_t maxCols, maxRows;
-  /* Location of game window. 
-   * It runs the width of the screen. */
-  uint16_t textWinStartY, textWinEndY;
-  /* Location of the input section. */
-  uint16_t inputX, inputY;
-  /* Location of user score */
-  uint16_t scoreX, scoreY;
-  /* Location of timer */
-  uint16_t timerX, timerY;
-};
 
 static inline void setCursorOn()
 {
@@ -224,21 +217,13 @@ static inline void setCursorOff()
   write(STDOUT_FILENO, "\033[?25l", 6);
 } 
 
-static inline void getMaxYX(int *y, int *x)
-{
-  extern struct Display d;
-  *x = d.maxCols;
-  *y = d.maxRows;
-}
-
-struct Player
-{
-  int correct;
-  int error; 
-  int x, y;
-  double score;
-  clock_t start; 
-};
+/*
+ * getMaxYX
+ * Gets the size of the screen when init was called. 
+ * TODO: We should update the screen size if the screen size
+ * is changed.
+ */
+void getMaxYX(int *y, int *x);
 
 /*
  * moveCursorPositionTo
@@ -282,6 +267,13 @@ void screenDestroy();
 char getInput();
 
 /*
+ * writeColorProfile
+ *  Sets the current write color to c. Any writing after this keeps
+ *  this profile. 
+ */
+void writeColorProfile(enum COLORS c);
+
+/*
  * writeString
  *  Write a string to the screen. It will write exactly where the cursor
  *  is. 
@@ -290,6 +282,6 @@ char getInput();
  *  returns Number of bytes written to screen. 
  */
 int writeString(const char* content, unsigned int size);
-int writeCharacter(uint16_t content);
+int writeCharacter(char content);
 
 #endif /* Include guard */

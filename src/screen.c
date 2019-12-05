@@ -10,7 +10,13 @@
 #define ttyin STDIN_FILENO
 #define ttyout STDOUT_FILENO
 
-struct Display d;
+
+
+struct Display
+{
+  /* Size of the terminal */
+  int maxCols, maxRows;
+} d;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Helpers
@@ -23,7 +29,14 @@ void moveCursorTo(int y, int x)
   write(ttyout, pos, strlen(pos));
 }
 
-uint16_t * setString(const char * s, size_t sz, enum COLORS c)
+void getMaxYX(int *y, int *x)
+{
+  extern struct Display d;
+  *x = d.maxCols;
+  *y = d.maxRows;
+}
+
+uint16_t* setString(const char * s, size_t sz, enum COLORS c)
 {
   uint16_t *str = malloc(sizeof(uint16_t) * (sz + 1));
   memset(str, '\0', sz + 1);
@@ -32,7 +45,7 @@ uint16_t * setString(const char * s, size_t sz, enum COLORS c)
     return NULL;
   }
 
-  for (int i = 0; i < sz; ++i) {
+  for (size_t i = 0; i < sz; ++i) {
     str[i] |= c | s[i]; 
   } 
 
@@ -44,7 +57,7 @@ uint16_t * setString(const char * s, size_t sz, enum COLORS c)
  * Write
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static void writeColorProfile(enum COLORS c)
+void writeColorProfile(enum COLORS c)
 {
   switch (c)
   {
@@ -120,18 +133,15 @@ void clearScreen()
   write(ttyout, "\033[2J", 4);
 } 
 
-int writeCharacter(uint16_t content)
+int writeCharacter(char content)
 {
-  writeColorProfile(getColor(content));
   return write(ttyout, &content, 1);
-  
 } 
 
-// TODO move to uint16_t
 int writeString(const char* content, unsigned int size)
 {
   int a = 0;
-  for (int i = 0; i < size; ++i) 
+  for (unsigned int i = 0; i < size; ++i) 
   {
     a += writeCharacter(content[i]);
   } 
@@ -168,6 +178,7 @@ struct termios orig_term;
 void screenDestroy()
 {
   /* Flush the terminal upon exit, and reset the original terminal settings. */
+  clearScreen();
   write(ttyout, "\033[37;40m", 8);
   tcsetattr(ttyin, TCSAFLUSH, &orig_term);
 }

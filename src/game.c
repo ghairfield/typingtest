@@ -90,29 +90,31 @@ static void setScoreLarge()
   getMaxYX(&y, &x);
   int space = y - UI.boardR;
   */
-   
-  uint16_t* score = makeString("Score:", strlen("Score:"), COLOR_GRN_ON_BLK);
-  uint16_t* error = makeString("Error:", strlen("Error:"), COLOR_RED_ON_BLK);
-  uint16_t* time  = makeString("Time :", strlen("time :"), COLOR_WHT_ON_BLK);
+  char* score = "Score:";
+  char* error = "Error:";
+  char* time  = "Time :";
 
   UI.scoreY = 5;
   UI.scoreX = UI.boardR + strlen("Score:") + 3;
   moveCursorTo(5, UI.boardR + 2);
-  for (int i = 0; i < strlen("Score:"); ++i) {
+  writeColorProfile(COLOR_GRN_ON_BLK);
+  for (unsigned int i = 0; i < strlen("Score:"); ++i) {
     writeCharacter(score[i]);
   }  
 
   UI.errorY = 7;
   UI.errorX = UI.boardR + strlen("Error:") + 3;
   moveCursorTo(7, UI.boardR + 2);
-  for (int i = 0; i < strlen("Error:"); ++i) {
+  writeColorProfile(COLOR_RED_ON_BLK);
+  for (unsigned int i = 0; i < strlen("Error:"); ++i) {
     writeCharacter(error[i]);
   }  
 
   UI.timeY = 9;
   UI.timeX = UI.boardR + strlen("Time :") + 3;
   moveCursorTo(9, UI.boardR + 2);
-  for (int i = 0; i < strlen(" Time:"); ++i) {
+  writeColorProfile(COLOR_WHT_ON_BLK);
+  for (unsigned int i = 0; i < strlen(" Time:"); ++i) {
     writeCharacter(time[i]);
   }  
 } 
@@ -122,7 +124,8 @@ static int userInterfaceInit()
   int x, y;
   getMaxYX(&y, &x);
   int center = x / 2;
-  uint16_t borderChar = makeCharacter('|', COLOR_BLU_ON_BLK); 
+  //uint16_t borderChar = makeCharacter('|', COLOR_BLU_ON_BLK); 
+  char borderChar = '|';
 
   UI.boardL = center - 60;
   UI.boardR = center + 60;
@@ -137,12 +140,15 @@ static int userInterfaceInit()
   }
 
   /* Draw the board. */
+  writeColorProfile(COLOR_BLU_ON_BLK);
   for (int i = 1; i <= UI.boardB; ++i) {
     moveCursorTo(i, UI.boardL);
     writeCharacter(borderChar);
     moveCursorTo(i, UI.boardR);
     writeCharacter(borderChar);
   }
+  writeColorProfile(COLOR_WHT_ON_BLK);
+
 
   return 1;
 } 
