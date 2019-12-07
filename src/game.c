@@ -4,6 +4,8 @@
 #include <string.h>
 #include <sys/time.h>
 
+#define true 1
+#define false 0
 /******************************************************************************
  * Timing functions and vars.
  *****************************************************************************/
@@ -47,21 +49,6 @@ static inline int setEven(int v)
   return ((v % 2) == 0) ? v : ++v;
 }
 
-uint16_t* makeString(const char* s, int sz, enum COLORS co)
-{
-  uint16_t* str = malloc(sizeof(uint16_t) * sz + 1);
-  if ( !str) return NULL;
-  
-  int i = 0;
-  for (; i < sz; ++i) {
-    str[i] = makeCharacter(s[i], co);
-  } 
-  str[i] = '\0';
-
-  return str;
-} 
-
-
 /******************************************************************************
  * User Interface
  *****************************************************************************/
@@ -76,6 +63,10 @@ struct UserInterface
   int errorY, errorX;
   int scoreY, scoreX;
   int timeY,  timeX;
+  
+  /* Debugging stuff */
+  int showTimer;        // Boolean to show timer.  
+  int gameTimerX, gameTimerY;
 } UI; 
 
 static void setScoreSmall()
@@ -158,22 +149,15 @@ static int userInterfaceInit()
  *  Greater the number, faster the clock ticks. 
  *  multi = 1.0 which is 1 second
  */
-void run(float multi)
+void run() /*float multi) */
 {
-  int y = 2;
+//  int y = 2;
   char c;
   unsigned char cont = 1;
   float interval = 0.8;
   double timedif = 0.0;
 
-  // TODO
-  // TODO
-  // TODO TODO TODO
-  // Either
-  //  1) Make string
-  //  2) Alias uint16_t to dblch <-- this one
-
-  char sent[] = "Timer: ";
+  char sent[] = "C ";
   int sentSz = strlen(sent);
   moveCursorTo(1,1);
   writeString(sent, sentSz);
@@ -201,6 +185,15 @@ void run(float multi)
   } 
 } 
 
+/*
+Options to add
+    -d      Debug (turn on game timer/fps etc.)
+    -s      Scoring. If supplied, words that go off screen
+            are do not end the game.
+    -lX     Level provided by X
+    -f      Force 80x20 layout
+    -w      Personal word list?
+*/
 void start_game()
 {
   screenInit();
@@ -217,7 +210,7 @@ void start_game()
   // timer
   
   // Run game
-  run(1.0);
+  run();
 
 
   screenDestroy();

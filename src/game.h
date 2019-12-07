@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include "screen.h"
 
-uint16_t* makeString(const char* s, int sz, enum COLORS co);
-
 /*
  * start_game
  *  Begins the speedtest game. Control is taken over
