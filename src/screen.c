@@ -207,13 +207,13 @@ char getInput()
 /* Used with clearScreen() */
 void clearBuffer()
 {
-  for (int y = 0; y < d.maxRows; ++y)
-   for (int x = 0; x < d.maxCols; ++x) {
-     d.fb[y][x].ch = ' ';
-     d.fb[y][x].co = d.curColor;
-     d.fb[y][x].dirty = false;
-   }
-  
+  for (int y = 0; y < d.maxRows; ++y) {
+    for (int x = 0; x < d.maxCols; ++x) {
+      d.fb[y][x].ch = ' ';
+      d.fb[y][x].co = d.curColor;
+      d.fb[y][x].dirty = false;
+    }
+  } 
   /* We move to the home position as does the VT100 clear screen */
   d.writeX = 1;
   d.writeY = 1;
@@ -246,6 +246,7 @@ void bufferDestroy()
   if (d.fb) {
     for (int i = 0; i < d.maxRows; ++i) free(d.fb[i]);
     free(d.fb);   
+    //d.fb = NULL;
   } 
 } 
 
@@ -257,9 +258,9 @@ struct termios orig_term;
 
 void screenDestroy()
 {
-  bufferDestroy();
   /* Flush the terminal upon exit, and reset the original terminal settings. */
-  clearScreen();
+  bufferDestroy();
+  write(ttyout, "\033[2J", 4);
   write(ttyout, "\033[37;40m", 8);
   tcsetattr(ttyin, TCSAFLUSH, &orig_term);
 }
@@ -280,6 +281,7 @@ static void rawMode()
   ioctl(ttyout, TIOCGWINSZ, &ws);
   d.maxRows = ws.ws_row;
   d.maxCols = ws.ws_col;
+  d.fb = NULL;
 
   if ( !isatty(ttyin)) {
     fprintf(stderr, "This is not a tty.\n");
@@ -287,7 +289,7 @@ static void rawMode()
   }
   /* Copy the original terminal settings so they can be set upon exit */
   tcgetattr(ttyin, &orig_term); 
-  atexit(screenDestroy); 
+//  atexit(screenDestroy); 
 
   struct termios term = orig_term;
   /* Trun off break (enter CBREAK)
