@@ -10,12 +10,22 @@
 #define ttyin STDIN_FILENO
 #define ttyout STDOUT_FILENO
 
+void clearBuffer();
 
+struct FrameBuffer {
+  enum COLORS co; /* The color of the selected position */
+  char ch;        /* Character that goes there */
+  char dirty;     /* Has the location been changed since last write */
+};
 
-struct Display
-{
-  /* Size of the terminal */
-  int maxCols, maxRows;
+struct Display {
+  struct FrameBuffer** fb;  /* Frame buffer */
+  enum COLORS curColor;     /* Current color to write */
+  int writeX, writeY;       /* Current location in frame buffer 
+                               Since the screen is (1,1) to (X,Y) we 
+                               need to decrement each by 1 to write to
+                               the framebuffer.*/
+  int maxCols, maxRows;     /* Size of the terminal, X, Y */
 } d;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -24,9 +34,10 @@ struct Display
 
 void moveCursorTo(int y, int x)
 {
-  char pos[20] = { '\0' };
-  sprintf(pos, "\033[%d;%dH", y, x);
-  write(ttyout, pos, strlen(pos));
+  if (y > 0 && y <= d.maxRows && x > 0 && x <= d.maxCols) {
+    d.writeX = x;
+    d.writeY = y;
+  }
 }
 
 void getMaxYX(int *y, int *x)
@@ -36,28 +47,16 @@ void getMaxYX(int *y, int *x)
   *y = d.maxRows;
 }
 
-uint16_t* setString(const char * s, size_t sz, enum COLORS c)
-{
-  uint16_t *str = malloc(sizeof(uint16_t) * (sz + 1));
-  memset(str, '\0', sz + 1);
-  if (!str) {
-    // TODO Some error code or something
-    return NULL;
-  }
-
-  for (size_t i = 0; i < sz; ++i) {
-    str[i] |= c | s[i]; 
-  } 
-
-  return str;
-}
-
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Write
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-void writeColorProfile(enum COLORS c)
+void setColor(enum COLORS c)
+{
+  d.curColor = c;
+} 
+
+static void writeColorProfile(enum COLORS c)
 {
   switch (c)
   {
@@ -131,11 +130,21 @@ void writeColorProfile(enum COLORS c)
 void clearScreen()
 {
   write(ttyout, "\033[2J", 4);
+  clearBuffer();
 } 
 
 int writeCharacter(char content)
 {
-  return write(ttyout, &content, 1);
+  if (d.writeX > 0 && d.writeX <= d.maxCols && 
+      d.writeY > 0 && d.writeY <= d.maxRows) 
+  {
+    d.fb[d.writeY - 1][d.writeX - 1].ch = content;
+    d.fb[d.writeY - 1][d.writeX - 1].co = d.curColor;
+    d.fb[d.writeY - 1][d.writeX - 1].dirty = true;
+    ++d.writeX;
+    return 1;
+  }
+  return 0;
 } 
 
 int writeString(const char* content, unsigned int size)
@@ -148,6 +157,29 @@ int writeString(const char* content, unsigned int size)
  
   return a; 
 } 
+
+void writeScreen()
+{
+  char w[20] = { '\0' };
+  enum COLORS curC = d.curColor;
+  for (int y = 0; y < d.maxRows; ++y) {
+    for (int x = 0; x < d.maxCols; ++x) {
+      if (d.fb[y][x].dirty) {
+        sprintf(w, "\033[%d;%dH", y + 1, x + 1);
+        write(ttyout, w, strlen(w));  // Move the cursor to position
+        
+        if (curC != d.fb[y][x].co) {
+          curC = d.fb[y][x].co;
+          writeColorProfile(curC);
+        }
+
+        d.fb[y][x].dirty = false;
+        write(ttyout, &d.fb[y][x].ch, 1);
+        memset(w, '\0', 20);
+      } 
+    } 
+  }
+}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Input handling
@@ -170,6 +202,54 @@ char getInput()
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * Frame Buffer setup
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* Used with clearScreen() */
+void clearBuffer()
+{
+  for (int y = 0; y < d.maxRows; ++y)
+   for (int x = 0; x < d.maxCols; ++x) {
+     d.fb[y][x].ch = ' ';
+     d.fb[y][x].co = d.curColor;
+     d.fb[y][x].dirty = false;
+   }
+  
+  /* We move to the home position as does the VT100 clear screen */
+  d.writeX = 1;
+  d.writeY = 1;
+} 
+
+void bufferInit()
+{
+  d.fb = malloc(sizeof(struct FrameBuffer *) * d.maxRows);
+  if ( !d.fb) {
+    perror("Could not allocated memory for frame buffer.\n");
+    return;
+  }
+
+  for (int i = 0; i < d.maxRows; ++i) {
+    d.fb[i] = malloc(sizeof(struct FrameBuffer) * d.maxCols);
+    if ( !d.fb[i]) {
+      perror("Could not allocated memory for a frame buffer.\n");
+      return;
+    }
+  } 
+
+  clearBuffer();
+  d.curColor = COLOR_WHT_ON_BLK;
+  d.writeX = 1;
+  d.writeY = 1;
+} 
+
+void bufferDestroy()
+{
+  if (d.fb) {
+    for (int i = 0; i < d.maxRows; ++i) free(d.fb[i]);
+    free(d.fb);   
+  } 
+} 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Setup
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -177,6 +257,7 @@ struct termios orig_term;
 
 void screenDestroy()
 {
+  bufferDestroy();
   /* Flush the terminal upon exit, and reset the original terminal settings. */
   clearScreen();
   write(ttyout, "\033[37;40m", 8);
@@ -229,4 +310,5 @@ static void rawMode()
 void screenInit()
 {
   rawMode();
+  bufferInit();
 }

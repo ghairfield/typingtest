@@ -88,7 +88,7 @@ static void setScoreLarge()
   UI.scoreY = 5;
   UI.scoreX = UI.boardR + strlen("Score:") + 3;
   moveCursorTo(5, UI.boardR + 2);
-  writeColorProfile(COLOR_GRN_ON_BLK);
+  setColor(COLOR_GRN_ON_BLK);
   for (unsigned int i = 0; i < strlen("Score:"); ++i) {
     writeCharacter(score[i]);
   }  
@@ -96,7 +96,7 @@ static void setScoreLarge()
   UI.errorY = 7;
   UI.errorX = UI.boardR + strlen("Error:") + 3;
   moveCursorTo(7, UI.boardR + 2);
-  writeColorProfile(COLOR_RED_ON_BLK);
+  setColor(COLOR_RED_ON_BLK);
   for (unsigned int i = 0; i < strlen("Error:"); ++i) {
     writeCharacter(error[i]);
   }  
@@ -104,7 +104,7 @@ static void setScoreLarge()
   UI.timeY = 9;
   UI.timeX = UI.boardR + strlen("Time :") + 3;
   moveCursorTo(9, UI.boardR + 2);
-  writeColorProfile(COLOR_WHT_ON_BLK);
+  setColor(COLOR_WHT_ON_BLK);
   for (unsigned int i = 0; i < strlen(" Time:"); ++i) {
     writeCharacter(time[i]);
   }  
@@ -131,14 +131,14 @@ static int userInterfaceInit()
   }
 
   /* Draw the board. */
-  writeColorProfile(COLOR_BLU_ON_BLK);
+  setColor(COLOR_BLU_ON_BLK);
   for (int i = 1; i <= UI.boardB; ++i) {
     moveCursorTo(i, UI.boardL);
     writeCharacter(borderChar);
     moveCursorTo(i, UI.boardR);
     writeCharacter(borderChar);
   }
-  writeColorProfile(COLOR_WHT_ON_BLK);
+  setColor(COLOR_WHT_ON_BLK);
 
 
   return 1;
@@ -151,7 +151,7 @@ static int userInterfaceInit()
  */
 void run() /*float multi) */
 {
-//  int y = 2;
+  writeScreen();
   char c;
   unsigned char cont = 1;
   float interval = 0.8;

@@ -34,11 +34,11 @@ void test_displayScreenCoords()
 
   int s;
   s = strlen(topR);
-  moveCursorTo(0, x - s + 1);
+  moveCursorTo(1, x - s + 1);
   writeString(topR, strlen(topR));
   
   s = strlen(botL);
-  moveCursorTo(y, 0);
+  moveCursorTo(y, 1);
   writeString(botL, strlen(botL));
 
   s = strlen(botR);
@@ -51,6 +51,8 @@ void test_displayScreenCoords()
   int halfy = y / 2;
   moveCursorTo(halfy, halfx - (size / 2));
   writeString(msg, size);
+
+  writeScreen();
 
   char c;
   while ((c = getInput()) != EXIT)
