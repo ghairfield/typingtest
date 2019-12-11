@@ -72,6 +72,48 @@ struct UserInterface
 static void setScoreSmall()
 {
   // Set the score on the bottom 
+  // We have 80 character positions to work with.
+  // We are going to give the score 5 spaces
+  char* score = "Score:";
+  // Error is going to get 5 spaces
+  char* error = "Error:";
+  // 5 spaces, MM:SS
+  char* time  = "Time :";
+
+  UI.errorY = UI.scoreY = UI.timeY = UI.boardB;
+  --UI.boardB; 
+
+  // Set bottom 
+  setColor(COLOR_MAG_ON_BLK);
+  moveCursorTo(UI.boardB, UI.boardL + 1);
+  for (int i = UI.boardL + 1; i < UI.boardR; ++i) {
+    writeCharacter('_');
+  }
+
+  int x;
+  x = UI.boardR - 1 - 6 - strlen(time);  
+  UI.timeX = x + 1 + strlen(time);  
+  moveCursorTo(UI.timeY, x);
+  setColor(COLOR_WHT_ON_BLK);
+  for (unsigned int i = 0; i < strlen(time); ++i) {
+    writeCharacter(time[i]);
+  }  
+
+  x = x - 1 - 6 - strlen(error);  
+  UI.errorX = x + 1 + strlen(error);  
+  moveCursorTo(UI.errorY, x);
+  setColor(COLOR_RED_ON_BLK);
+  for (unsigned int i = 0; i < strlen(error); ++i) {
+    writeCharacter(error[i]);
+  }  
+
+  x = x - 1 - 6 - strlen(score);  
+  UI.scoreX = x + 1 + strlen(score);  
+  moveCursorTo(UI.scoreY, x);
+  setColor(COLOR_GRN_ON_BLK);
+  for (unsigned int i = 0; i < strlen(score); ++i) {
+    writeCharacter(score[i]);
+  }  
 } 
 
 static void setScoreLarge()
@@ -115,15 +157,16 @@ static int userInterfaceInit()
   int x, y;
   getMaxYX(&y, &x);
   int center = x / 2;
-  //uint16_t borderChar = makeCharacter('|', COLOR_BLU_ON_BLK); 
   char borderChar = '|';
 
-  UI.boardL = center - 60;
-  UI.boardR = center + 60;
+  UI.boardL = center - 40;
+  UI.boardR = center + 40;
   UI.boardT = 1;
   UI.boardB = y;
   
-  if (x < 90) {
+  // We set the edge of the board in
+  // | Score: XXXXX = 14 characters before the edge of the screen.
+  if (x < 94) {
     setScoreSmall();
   }
   else {
@@ -192,6 +235,7 @@ Options to add
             are do not end the game.
     -lX     Level provided by X
     -f      Force 80x20 layout
+    -fx:y   Force XxY layout
     -w      Personal word list?
 */
 void start_game()
