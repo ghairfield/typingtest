@@ -21,8 +21,8 @@ Current todo list (in no order):
 - [ ] Word list. Easy, medium, hard
 - [ ] Refactor screen functions. Need special case for 80x20
 - [ ] Data structure for words on screen
-- [ ] Way to update screen only when necessary
-- [ ] Figure out location of game stats
+- [X] ~Way to update screen only when necessary~ Frame buffer
+- [X] Figure out location of game stats
 - [ ] Save game? High score?
 - [ ] Scale game if screen size changes
 - [ ] Change game speed depending on size

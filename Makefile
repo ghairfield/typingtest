@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -g
+CFLAGS=-Wall -Wextra -g -std=c99
 vpath %.c src
 vpath %.h src
 vpath %.py data
