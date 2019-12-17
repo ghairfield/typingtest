@@ -3,9 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
+#include <ctype.h>
 
 #define true 1
 #define false 0
+
 /******************************************************************************
  * Timing functions and vars.
  *****************************************************************************/
@@ -52,6 +54,8 @@ static inline int setEven(int v)
 /******************************************************************************
  * User Interface
  *****************************************************************************/
+static const char debugTickString[] = "%u";
+
 struct UserInterface
 {
   /*
@@ -60,13 +64,26 @@ struct UserInterface
    * the UI won't scale with it. Put on the TODO list.
    */
   int boardL, boardR, boardT, boardB;
+  enum COLORS boardC; // Not implemented 
+
   int errorY, errorX;
+  enum COLORS errorC; // Not implemented
+
   int scoreY, scoreX;
+  enum COLORS scoreC; // Not implemented
+
   int timeY,  timeX;
+  enum COLORS timeC;
   
-  /* Debugging stuff */
-  int showTimer;        // Boolean to show timer.  
-  int gameTimerX, gameTimerY;
+  /* Input area */
+  int inputX, inputY; /* Location of input area */
+  int inputS;         /* Size of input area */
+  enum COLORS inputC; /* Color of area */
+
+  /* Debug on */
+  char debug;
+  int debugTickX, debugTickY;
+  enum COLORS debugTickC;
 } UI; 
 
 static void setScoreSmall()
@@ -91,10 +108,11 @@ static void setScoreSmall()
   }
 
   int x;
+  UI.timeC = COLOR_WHT_ON_BLK;
   x = UI.boardR - 1 - 6 - strlen(time);  
   UI.timeX = x + 1 + strlen(time);  
   moveCursorTo(UI.timeY, x);
-  setColor(COLOR_WHT_ON_BLK);
+  setColor(UI.timeC);
   for (unsigned int i = 0; i < strlen(time); ++i) {
     writeCharacter(time[i]);
   }  
@@ -114,6 +132,12 @@ static void setScoreSmall()
   for (unsigned int i = 0; i < strlen(score); ++i) {
     writeCharacter(score[i]);
   }  
+
+/*
+  char debug;
+  int debugTickX, debugTickY;
+  enum COLORS debugTickC;
+*/
 } 
 
 static void setScoreLarge()
@@ -150,7 +174,24 @@ static void setScoreLarge()
   for (unsigned int i = 0; i < strlen(" Time:"); ++i) {
     writeCharacter(time[i]);
   }  
+
+  UI.debugTickX = UI.debugTickY = 1;
+  UI.debugTickC = COLOR_WHT_ON_BLK;
 } 
+
+static void setInputArea()
+{
+  UI.inputX = UI.boardR + 2;   
+  UI.inputY = 11;   
+  UI.inputS = 15;
+  UI.inputC = COLOR_WHT_ON_BLU;
+
+  moveCursorTo(UI.inputY, UI.inputX);
+  setColor(UI.inputC);
+  for (int i = 0; i < UI.inputS; ++i) {
+    writeCharacter(' ');
+  }  
+}
 
 static int userInterfaceInit()
 {
@@ -171,6 +212,7 @@ static int userInterfaceInit()
   }
   else {
     setScoreLarge();
+    setInputArea();
   }
 
   /* We want the board to be at least 80. Adding sides adds 2,
@@ -190,6 +232,84 @@ static int userInterfaceInit()
   return 1;
 } 
 
+/**
+    User Input area
+
+    Good practice to always reset the color when exiting a 
+    function? This increases the function calls, but also
+    makes for a hetrogenous screen call.
+*/
+
+static int writeGameTick(unsigned int t)
+{
+  int ret = 0;
+  char str[15] = { '\0' };
+  enum COLORS co = getCurrentColor();
+
+  setColor(UI.debugTickC);
+  moveCursorTo(UI.debugTickY, UI.debugTickX);
+  sprintf(str, debugTickString, t);
+  ret = writeString(str, strlen(str));
+
+  setColor(co);
+  return ret;
+}
+
+static int writePlayerTime()
+{
+  enum COLORS co = getCurrentColor();
+  setColor(UI.timeC);
+  int ret = 0;
+  char tm[7] = { '\0' };
+
+  sprintf(tm, "%4.1f", timerTotalTime());
+  moveCursorTo(UI.timeY, UI.timeX);
+  ret = writeString(tm, strlen(tm));
+
+  setColor(co);
+  return ret;
+}
+
+static int writeInput(char c)
+{  
+  static int pos = 0; /* Position of next write */
+  static char input[15] = { '\0' };
+
+  // TODO: This should flash red. Need to add flash class.
+  if (pos > UI.inputS) return 0;
+  
+  int ret = 0;        /* Return value */
+  enum COLORS co = getCurrentColor();
+
+  setColor(UI.inputC);
+  if (c == DEL && pos > 0) {
+    moveCursorTo(UI.inputY, UI.inputX + --pos);
+    ret = writeCharacter(' ');
+    input[pos] = c;
+  }
+  else if (isalpha(c) && pos < UI.inputS) {
+    input[pos] = c;
+    moveCursorTo(UI.inputY, UI.inputX + pos++);
+    ret =  writeCharacter(c);
+  }
+  else if (c == CR && pos > 0) {
+    // TODO: Check if the word is correct.
+
+    // Clear the input area (assuming word is correct).
+    if (1) {
+      moveCursorTo(UI.inputY, UI.inputX);
+      pos = 0;
+      for (int i = 0; i < UI.inputS; ++i) {
+        ret += writeCharacter(' ');
+        input[i] = ' ';
+      }
+    }
+  }
+
+  setColor(co);
+  return ret;
+}
+
 /*
  * multi 
  *  Greater the number, faster the clock ticks. 
@@ -197,37 +317,32 @@ static int userInterfaceInit()
  */
 void run() /*float multi) */
 {
+  setColor(COLOR_WHT_ON_BLK);
   writeScreen();
-  char c;
-  unsigned char cont = 1;
+  unsigned int tick = 0;
+  double timediff = 0.0;
   float interval = 0.8;
-  double timedif = 0.0;
-
-  char sent[] = "C ";
-  int sentSz = strlen(sent);
-  moveCursorTo(1,1);
-  writeString(sent, sentSz);
-  char tmstr[] = "%0.2f";
+  char cont = 1;
   timerInit();
 
   while (cont) {
-    moveCursorTo(1, sentSz + 1);
-    char wrt[15] = { '\0' };
-    char tmply[15] = { '\0' };
-    timedif = timerDiff();
-    sprintf(wrt, tmstr, timedif);
-    writeString(wrt, strlen(wrt));
-    
-    sprintf(tmply, "%4.2f", timerTotalTime());
-    moveCursorTo(UI.timeY, UI.timeX);
-    writeString(tmply, strlen(tmply));
+    char c = 0;
+    timediff = timerDiff();
+
+    if (1) writePlayerTime();
     
     // Game ticks here
-    if (timedif > interval) {
+    if (timediff > interval) {
+      ++tick;
+
+      if (1) writeGameTick(tick);
+
       timerReset();
     } 
     
     if ((c = getInput()) == EXIT) cont = 0;
+    writeInput(c); 
+    writeScreen();
   } 
 } 
 
