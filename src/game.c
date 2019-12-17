@@ -86,7 +86,7 @@ static void setScoreSmall()
   // Set bottom 
   setColor(COLOR_MAG_ON_BLK);
   moveCursorTo(UI.boardB, UI.boardL + 1);
-  for (int i = UI.boardL + 1; i < UI.boardR; ++i) {
+  for (int i = UI.boardL + 1; i <= UI.boardR; ++i) {
     writeCharacter('_');
   }
 
@@ -173,15 +173,18 @@ static int userInterfaceInit()
     setScoreLarge();
   }
 
-  /* Draw the board. */
-  setColor(COLOR_BLU_ON_BLK);
-  for (int i = 1; i <= UI.boardB; ++i) {
-    moveCursorTo(i, UI.boardL);
-    writeCharacter(borderChar);
-    moveCursorTo(i, UI.boardR);
-    writeCharacter(borderChar);
+  /* We want the board to be at least 80. Adding sides adds 2,
+   * so we need at least 82 to write the sides. */
+  if (x > 81) {
+    setColor(COLOR_BLU_ON_BLK);
+    for (int i = 1; i <= UI.boardB; ++i) {
+      moveCursorTo(i, UI.boardL);
+      writeCharacter(borderChar);
+      moveCursorTo(i, UI.boardR);
+      writeCharacter(borderChar);
+    }
+    setColor(COLOR_WHT_ON_BLK);
   }
-  setColor(COLOR_WHT_ON_BLK);
 
 
   return 1;
