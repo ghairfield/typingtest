@@ -56,6 +56,11 @@ void setColor(enum COLORS c)
   d.curColor = c;
 } 
 
+enum COLORS getCurrentColor()
+{
+  return d.curColor;
+}
+
 static void writeColorProfile(enum COLORS c)
 {
   switch (c)
@@ -141,6 +146,8 @@ int writeCharacter(char content)
     d.fb[d.writeY - 1][d.writeX - 1].ch = content;
     d.fb[d.writeY - 1][d.writeX - 1].co = d.curColor;
     d.fb[d.writeY - 1][d.writeX - 1].dirty = true;
+
+    // XXX Overflow on or off???? Need to implement
     ++d.writeX;
     return 1;
   }
@@ -162,6 +169,8 @@ void writeScreen()
 {
   char w[20] = { '\0' };
   enum COLORS curC = d.curColor;
+  writeColorProfile(curC);
+
   for (int y = 0; y < d.maxRows; ++y) {
     for (int x = 0; x < d.maxCols; ++x) {
       if (d.fb[y][x].dirty) {

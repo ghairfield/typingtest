@@ -175,6 +175,7 @@ setColor
 Sets the current write color to c. Any writing after this keeps this profile. 
 */
 void setColor(enum COLORS c);
+enum COLORS getCurrentColor();
 
 /**
 writeString
