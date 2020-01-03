@@ -4,17 +4,38 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* XXX *******************
- * Testing only - delete..
- */
-static void print_wl(char **wl) 
+void initWordContainer(struct wordContainer *wc)
 {
-  int i;
-  for (i = 0; i < MAX_WORDS; ++i) {
-    if (wl[i]) printf("%s\n", wl[i]);
+  wc = malloc (sizeof (struct wordContainer));
+  if ( !wc) {
+    perror ("Could not allocate memory for wordContainer\n");
+    wc = NULL;
+    return;
   }
+
+  wc->size = 0;
+  wc->x    =  0;
+  wc->y    =  0;
 }
-/*********************/
+
+int initWordContainerString(struct wordContainer *wc, const char *word)
+{
+  if ( !wc) {
+    initWordContainer(wc);
+  }
+
+  wc->size = strlen(word);
+  wc->word = malloc (sizeof (char) * wc->size + 1);
+  if ( !wc->word) {
+    perror ("Could not allocate memory for Container word..\n");
+    if (wc) free (wc);
+    wc = NULL;
+    return -1;
+  }
+
+  strncpy(wc->word, word, wc->size);
+  return 0;
+}
 
 static int copy_word(char **wl, char *word, int sz)
 {

@@ -237,47 +237,9 @@ static int userInterfaceInit()
 /******************************************************************************
  * Words on screen
  *****************************************************************************/
-struct WordContainer
-{
-  char * word;
-  int   sz;
-  int   x, y;
-}wCont;
-
+static struct wordContainer **words;
+static struct wordContainer wCont;
 char **wordList;
-
-static void initWordContainer(struct WordContainer *wc)
-{
-  wc = malloc (sizeof (struct WordContainer));
-  if ( !wc) {
-    perror ("Could not allocate memory for WordContainer\n");
-    wc = NULL;
-    return;
-  }
-
-  wc->sz = 0;
-  wc->x =  0;
-  wc->y =  0;
-}
-
-static int initWordContainerString(struct WordContainer *wc, const char *word)
-{
-  if ( !wc) {
-    initWordContainer(wc);
-  }
-
-  wc->sz = strlen(word);
-  wc->word = malloc (sizeof (char) * wc->sz + 1);
-  if ( !wc->word) {
-    perror ("Could not allocate memory for Container word..\n");
-    if (wc) free (wc);
-    wc = NULL;
-    return -1;
-  }
-
-  strncpy(wc->word, word, wc->sz);
-  return 0;
-}
 
 int placeNewWord(const char *w)
 {
@@ -292,7 +254,7 @@ int placeNewWord(const char *w)
     */
 
     r = rand() % (UI.boardR);
-    if (r > UI.boardL && r < UI.boardR - wCont.sz) {
+    if (r > UI.boardL && r < UI.boardR - wCont.size) {
       // Set the values
       break;
     }
@@ -311,14 +273,14 @@ int placeNewWord(const char *w)
     function? This increases the function calls, but also
     makes for a hetrogenous screen call.
 */
-static void clearWord(struct WordContainer *wc)
+static void clearWord(struct wordContainer *wc)
 {
   /* A wordContainer with the correct coordinates to delete */
   enum COLORS co = getCurrentColor();
   int i;
   setColor(COLOR_WHT_ON_BLK);
   moveCursorTo(wc->y, wc->x);
-  for (i = 0; i < wc->sz; ++i)
+  for (i = 0; i < wc->size; ++i)
     writeCharacter(' ');
   setColor(co);
 }
@@ -338,7 +300,7 @@ static int writeWordsTick()
   else if (vertpos > 50.0) setColor(COLOR_YLW_ON_BLK);
   else setColor(COLOR_WHT_ON_BLK);
 
-  writeString(wCont.word, wCont.sz);
+  writeString(wCont.word, wCont.size);
   setColor(co);
 
   return 0;
@@ -377,10 +339,10 @@ static int writePlayerTime()
   return ret;
 }
 
+static char input[15] = { '\0' };
 static int writeInput(char c)
 {  
   static int pos = 0; /* Position of next write */
-  static char input[15] = { '\0' };
 
   // TODO: This should flash red. Need to add flash class.
   if (pos > UI.inputS) return 0;
