@@ -1,6 +1,8 @@
 #ifndef WORDS_H_
 #define WORDS_H_
 
+#include "../list/src/list/list.h"
+
 #define MAX_WORDS 200
 
 /**
@@ -23,7 +25,7 @@ initWordContainer
 @param wc Word container to initialize
 returns None
 */
-void initWordContainer(struct wordContainer *wc);
+void initWordContainer(struct wordContainer **wc);
 
 /**
 initWordContainerString
@@ -33,7 +35,7 @@ initWordContainerString
 @param word Word to initialize @wc to. Must be NULL terminated.
 returns 0 on success, < 1 on failure.
 */
-int initWordContainerString(struct wordContainer *wc, const char *word);
+int initWordContainerString(struct wordContainer **wc, const char *word);
 
 /**
  * get_word_list
@@ -43,7 +45,7 @@ int initWordContainerString(struct wordContainer *wc, const char *word);
  *  param fn Valid file name
  *  returns Number of words copied in to @wl
  */
-int get_word_list(char ***wl, char *fn);
+int get_word_list(List *wl, char *fn, int cnt);
 
 /**
  * destroy_word_list
@@ -52,6 +54,6 @@ int get_word_list(char ***wl, char *fn);
  *  param wl Word list to free
  *  returns Nothing
  */
-void destroy_word_list(char ***wl);
+void destroy_word_list(List *l);
 
 #endif /* Include guard */

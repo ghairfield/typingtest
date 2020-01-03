@@ -1,3 +1,6 @@
 [submodule "english-words"]
 	path = english-words
 	url = https://github.com/dwyl/english-words.git
+[submodule "list"]
+	path = list
+	url = https://github.com/ghairfield/taters.git

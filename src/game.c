@@ -237,7 +237,7 @@ static int userInterfaceInit()
 /******************************************************************************
  * Words on screen
  *****************************************************************************/
-static struct wordContainer **words;
+static List *words;
 static struct wordContainer wCont;
 char **wordList;
 
