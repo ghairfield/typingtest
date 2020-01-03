@@ -1,4 +1,5 @@
 #include "game.h"
+#include "words.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -7,6 +8,8 @@
 
 #define true 1
 #define false 0
+
+typedef unsigned int uint;
 
 /******************************************************************************
  * Timing functions and vars.
@@ -54,7 +57,6 @@ static inline int setEven(int v)
 /******************************************************************************
  * User Interface
  *****************************************************************************/
-static const char debugTickString[] = "%u";
 
 struct UserInterface
 {
@@ -232,6 +234,76 @@ static int userInterfaceInit()
   return 1;
 } 
 
+/******************************************************************************
+ * Words on screen
+ *****************************************************************************/
+struct WordContainer
+{
+  char * word;
+  int   sz;
+  int   x, y;
+}wCont;
+
+char **wordList;
+
+static void initWordContainer(struct WordContainer *wc)
+{
+  wc = malloc (sizeof (struct WordContainer));
+  if ( !wc) {
+    perror ("Could not allocate memory for WordContainer\n");
+    wc = NULL;
+    return;
+  }
+
+  wc->sz = 0;
+  wc->x =  0;
+  wc->y =  0;
+}
+
+static int initWordContainerString(struct WordContainer *wc, const char *word)
+{
+  if ( !wc) {
+    initWordContainer(wc);
+  }
+
+  wc->sz = strlen(word);
+  wc->word = malloc (sizeof (char) * wc->sz + 1);
+  if ( !wc->word) {
+    perror ("Could not allocate memory for Container word..\n");
+    if (wc) free (wc);
+    wc = NULL;
+    return -1;
+  }
+
+  strncpy(wc->word, word, wc->sz);
+  return 0;
+}
+
+int placeNewWord(const char *w)
+{
+  srand(time(NULL));
+  initWordContainerString(&wCont, w); 
+  int r;
+
+  while (1) {
+    /* Keep looping until we get a number that is:
+        1) An x position between left boarder and right boarder minux word size.
+        2) The x position is not taken by a "close" word. TODO 
+    */
+
+    r = rand() % (UI.boardR);
+    if (r > UI.boardL && r < UI.boardR - wCont.sz) {
+      // Set the values
+      break;
+    }
+  }
+
+  wCont.x = r;
+  wCont.y = 0;
+  return 1;
+}
+
+
 /**
     User Input area
 
@@ -239,16 +311,51 @@ static int userInterfaceInit()
     function? This increases the function calls, but also
     makes for a hetrogenous screen call.
 */
+static void clearWord(struct WordContainer *wc)
+{
+  /* A wordContainer with the correct coordinates to delete */
+  enum COLORS co = getCurrentColor();
+  int i;
+  setColor(COLOR_WHT_ON_BLK);
+  moveCursorTo(wc->y, wc->x);
+  for (i = 0; i < wc->sz; ++i)
+    writeCharacter(' ');
+  setColor(co);
+}
 
+static int writeWordsTick()
+{
+  enum COLORS co = getCurrentColor();
+  clearWord(&wCont);
+  ++wCont.y;
+  // TODO If this move pushed the word past UI.boardB, add
+  // an error or something.
+  moveCursorTo(wCont.y, wCont.x);
+
+  // Set color based on Y
+  float vertpos = (wCont.y / (float)UI.boardB) * 100.0f;
+  if (vertpos > 80.0) setColor(COLOR_RED_ON_BLK);
+  else if (vertpos > 50.0) setColor(COLOR_YLW_ON_BLK);
+  else setColor(COLOR_WHT_ON_BLK);
+
+  writeString(wCont.word, wCont.sz);
+  setColor(co);
+
+  return 0;
+}
+
+static const char debugTickString[] = "%u|%1.2f";
 static int writeGameTick(unsigned int t)
 {
   int ret = 0;
   char str[15] = { '\0' };
   enum COLORS co = getCurrentColor();
 
+  float vertpos = (wCont.y / (float)UI.boardB) * 100.0f;
+  
   setColor(UI.debugTickC);
   moveCursorTo(UI.debugTickY, UI.debugTickX);
-  sprintf(str, debugTickString, t);
+  sprintf(str, debugTickString, t, vertpos);
   ret = writeString(str, strlen(str));
 
   setColor(co);
@@ -315,7 +422,7 @@ static int writeInput(char c)
  *  Greater the number, faster the clock ticks. 
  *  multi = 1.0 which is 1 second
  */
-void run() /*float multi) */
+void run(float multi)
 {
   setColor(COLOR_WHT_ON_BLK);
   writeScreen();
@@ -324,6 +431,7 @@ void run() /*float multi) */
   float interval = 0.8;
   char cont = 1;
   timerInit();
+  placeNewWord("Tacos");
 
   while (cont) {
     char c = 0;
@@ -332,11 +440,14 @@ void run() /*float multi) */
     if (1) writePlayerTime();
     
     // Game ticks here
-    if (timediff > interval) {
+    if ((timediff * multi) > interval) {
       ++tick;
 
-      if (1) writeGameTick(tick);
+      if (1) {
+        writeGameTick(tick);
+      }
 
+      writeWordsTick();
       timerReset();
     } 
     
@@ -362,9 +473,16 @@ void start_game()
   setCursorOff();
   clearScreen();
   userInterfaceInit();
-
+/*
   // get word list
+  char **wordList = NULL;
+  int ct = get_word_list(&wordList, "data/words.txt");
+  int i;
 
+  printf("We got %d words back, the first 10 are:\n", ct);
+  for (i = 0; i < 10; ++i)
+    printf("%s\n", wordList[i]);
+*/
   // Data structure
   
   // Need player structure
@@ -372,8 +490,9 @@ void start_game()
   // timer
   
   // Run game
-  run();
+  run(1.0f);
 
 
+ // destroy_word_list(&wordList);
   screenDestroy();
 } 
