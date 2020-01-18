@@ -4,84 +4,83 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* XXX *******************
- * Testing only - delete..
- */
-static void print_wl(char **wl) 
+static struct Word wl[MAX_WORDS];
+static unsigned int currentIndex = 0; /* Index of next word */
+static bool initHappened = false; /* Has the user init'd the words? */
+
+static void init_words()
 {
-  int i;
-  for (i = 0; i < MAX_WORDS; ++i) {
-    if (wl[i]) printf("%s\n", wl[i]);
+  for (int i = 0; i < MAX_WORDS; ++i) {
+    wl[i].word = NULL;
+    wl[i].size = 0;
+    wl[i].x    = 0;
+    wl[i].y    = 0;
+    wl[i].seen = false;
+    wl[i].onScreen = false;
   }
 }
-/*********************/
 
-static int copy_word(char **wl, char *word, int sz)
+void destroy_word_list()
 {
-  *wl = malloc (sizeof(char) * (sz + 1));
-  if ( !*wl) {
-    perror ("Could not malloc a word.\n");
+  for (int i = 0; i < MAX_WORDS; ++i) 
+    if (wl[i].word) free (wl[i].word);
+}
+
+static int copy_word(int index, char *word, int sz)
+{
+  wl[index].word = malloc (sizeof(char) * (sz + 1));
+  if ( !wl[index].word) {
+    fprintf(stderr, "Could not allocate memory for a word. (%s:%d)\n", __FILE__, __LINE__);
     return -1;
   }
-  strncpy(*wl, word, sz);
+
+  strncpy(wl[index].word, word, sz);
+  wl[index].size = sz;
 
   return 1;
 }
 
-/* Requires a valid file pointer */
-static int get_words(char **wl, FILE *fp)
+static int get_words(FILE *fp)
 {
   if ( !fp) return -1;
   
   char wordarr[256] = { '\0' }, c;
-  int index = 0, count = 0;
+  int index = 0, count = 0, r = 0;
 
-  while((c = fgetc(fp)) != EOF && index < 256) {
+  while((c = fgetc(fp)) != EOF && count < 256) {
     if (c == '\n') {
-      int r = copy_word(wl + count, wordarr, index);
+      r = copy_word(index++, wordarr, count);
       if (r < 0) return -1; 
-      else  {
-        ++count;
-        index = 0;
-      }
+      count = 0;
+      memset(wordarr, '\0', 256);
     }
     else {
-      wordarr[index++] = c;
+      wordarr[count++] = c;
     }
   }
 
-  return count;
+  return index;
 }
 
-void destroy_word_list(char ***wl)
+int init_word_list(const char *fn)
 {
-  char **w = *wl;
-  if (w) {
-    int i;
-    for (i = 0; i < MAX_WORDS; ++i) { 
-      if (w[i]) free(w[i]);
-    }
-    free(*wl);
-  }
-}
+  init_words();
 
-int get_word_list(char ***wl, char *fn)
-{
   FILE *fp = fopen(fn, "r");
   if ( !fp) {
     perror ("Could not open the file!\n");
     return 0;
   }
 
-  *wl = malloc (sizeof (char *) * MAX_WORDS);
-  if ( !wl) {
-    perror ("Could not create list.\n");
-    return 0;
-  }
-    
-  memset(*wl, '\0', MAX_WORDS);
-  int ct = get_words(*wl, fp);
+  int ct = get_words(fp);
+  if (ct > 0) initHappened = true;
   
   fclose(fp);
   return ct;
+}
+
+struct Word * get_next_word()
+{
+  if (initHappened && wl[currentIndex].word) return &wl[currentIndex++];
+  else return NULL;
 }

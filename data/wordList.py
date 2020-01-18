@@ -16,7 +16,7 @@ def extract_words(wl, wo='words.txt', small=4, large=12):
 '''
 
 # Words should come here already shuffled.
-def create_word_list(words, wo='words.txt', size=200):
+def create_word_list(words, wo='words.txt', size=500):
     fp = open(wo, 'w')
 
     for i in range(size):

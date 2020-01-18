@@ -237,69 +237,30 @@ static int userInterfaceInit()
 /******************************************************************************
  * Words on screen
  *****************************************************************************/
-struct WordContainer
+
+#define MAX_SCREEN_WORDS 25 // TODO: 25 max words on screen?
+static struct Word * wordList[MAX_SCREEN_WORDS]; 
+
+int placeNewWord(int index)
 {
-  char * word;
-  int   sz;
-  int   x, y;
-}wCont;
-
-char **wordList;
-
-static void initWordContainer(struct WordContainer *wc)
-{
-  wc = malloc (sizeof (struct WordContainer));
-  if ( !wc) {
-    perror ("Could not allocate memory for WordContainer\n");
-    wc = NULL;
-    return;
-  }
-
-  wc->sz = 0;
-  wc->x =  0;
-  wc->y =  0;
-}
-
-static int initWordContainerString(struct WordContainer *wc, const char *word)
-{
-  if ( !wc) {
-    initWordContainer(wc);
-  }
-
-  wc->sz = strlen(word);
-  wc->word = malloc (sizeof (char) * wc->sz + 1);
-  if ( !wc->word) {
-    perror ("Could not allocate memory for Container word..\n");
-    if (wc) free (wc);
-    wc = NULL;
-    return -1;
-  }
-
-  strncpy(wc->word, word, wc->sz);
-  return 0;
-}
-
-int placeNewWord(const char *w)
-{
-  srand(time(NULL));
-  initWordContainerString(&wCont, w); 
   int r;
+  wordList[index]->y = 0;
 
   while (1) {
     /* Keep looping until we get a number that is:
         1) An x position between left boarder and right boarder minux word size.
         2) The x position is not taken by a "close" word. TODO 
     */
-
     r = rand() % (UI.boardR);
-    if (r > UI.boardL && r < UI.boardR - wCont.sz) {
+    if (r > UI.boardL && r < UI.boardR - wordList[index]->size) {
       // Set the values
+      wordList[index]->x = r;
+      wordList[index]->seen = true;
+      wordList[index]->onScreen = true;
       break;
     }
   }
 
-  wCont.x = r;
-  wCont.y = 0;
   return 1;
 }
 
@@ -311,14 +272,14 @@ int placeNewWord(const char *w)
     function? This increases the function calls, but also
     makes for a hetrogenous screen call.
 */
-static void clearWord(struct WordContainer *wc)
+static void clearWord(int index)
 {
-  /* A wordContainer with the correct coordinates to delete */
+  /* A struct Word with the correct coordinates to delete */
   enum COLORS co = getCurrentColor();
   int i;
   setColor(COLOR_WHT_ON_BLK);
-  moveCursorTo(wc->y, wc->x);
-  for (i = 0; i < wc->sz; ++i)
+  moveCursorTo(wordList[index]->y, wordList[index]->x);
+  for (i = 0; i < wordList[index]->size; ++i)
     writeCharacter(' ');
   setColor(co);
 }
@@ -326,36 +287,48 @@ static void clearWord(struct WordContainer *wc)
 static int writeWordsTick()
 {
   enum COLORS co = getCurrentColor();
-  clearWord(&wCont);
-  ++wCont.y;
-  // TODO If this move pushed the word past UI.boardB, add
-  // an error or something.
-  moveCursorTo(wCont.y, wCont.x);
+  int i;
+  float vertpos;
+  
+  for (i = 0; i < MAX_SCREEN_WORDS; ++i) {
+    // XXX Fix this -> shouldnt erase a new word
+    // TODO This is not clearing words that end on the bottom of the 
+    // screen.
+    if (wordList[i]->onScreen) {
+      clearWord(i);
 
-  // Set color based on Y
-  float vertpos = (wCont.y / (float)UI.boardB) * 100.0f;
-  if (vertpos > 80.0) setColor(COLOR_RED_ON_BLK);
-  else if (vertpos > 50.0) setColor(COLOR_YLW_ON_BLK);
-  else setColor(COLOR_WHT_ON_BLK);
+      if (++wordList[i]->y > UI.boardB) {
+        // TODO Error here.
+        wordList[i]->onScreen = false;
+      };
 
-  writeString(wCont.word, wCont.sz);
+      // Set color based on Y
+      vertpos = (wordList[i]->y / (float)UI.boardB) * 100.0f;
+      if (vertpos > 80.0) setColor(COLOR_RED_ON_BLK);
+      else if (vertpos > 50.0) setColor(COLOR_YLW_ON_BLK);
+      else setColor(COLOR_WHT_ON_BLK);
+
+      // Write word
+      moveCursorTo(wordList[i]->y, wordList[i]->x);
+      writeString(wordList[i]->word, wordList[i]->size);
+    }
+  }
+
   setColor(co);
 
   return 0;
 }
 
-static const char debugTickString[] = "%u|%1.2f";
+static const char debugTickString[] = "%u";
 static int writeGameTick(unsigned int t)
 {
   int ret = 0;
   char str[15] = { '\0' };
   enum COLORS co = getCurrentColor();
 
-  float vertpos = (wCont.y / (float)UI.boardB) * 100.0f;
-  
   setColor(UI.debugTickC);
   moveCursorTo(UI.debugTickY, UI.debugTickX);
-  sprintf(str, debugTickString, t, vertpos);
+  sprintf(str, debugTickString, t);
   ret = writeString(str, strlen(str));
 
   setColor(co);
@@ -427,11 +400,13 @@ void run(float multi)
   setColor(COLOR_WHT_ON_BLK);
   writeScreen();
   unsigned int tick = 0;
+  int wordIndex = 0, wordCount = 0;
   double timediff = 0.0;
-  float interval = 0.8;
+  float interval = 1.f;
   char cont = 1;
   timerInit();
-  placeNewWord("Tacos");
+
+  srand(time(NULL));
 
   while (cont) {
     char c = 0;
@@ -447,6 +422,11 @@ void run(float multi)
         writeGameTick(tick);
       }
 
+      if (rand() % 3 == 0 && wordCount < MAX_SCREEN_WORDS){
+        ++wordCount;
+        placeNewWord(wordIndex++);
+      }
+
       writeWordsTick();
       timerReset();
     } 
@@ -456,6 +436,11 @@ void run(float multi)
     writeScreen();
   } 
 } 
+
+void dummy()
+{
+  //debug only
+}
 
 /*
 Options to add
@@ -473,26 +458,19 @@ void start_game()
   setCursorOff();
   clearScreen();
   userInterfaceInit();
-/*
-  // get word list
-  char **wordList = NULL;
-  int ct = get_word_list(&wordList, "data/words.txt");
-  int i;
 
-  printf("We got %d words back, the first 10 are:\n", ct);
-  for (i = 0; i < 10; ++i)
-    printf("%s\n", wordList[i]);
-*/
-  // Data structure
-  
+  // Init word list
+  init_word_list("data/words.txt");
+  int i = 0;
+  for (; i < MAX_SCREEN_WORDS; ++i) wordList[i] = get_next_word();
+ 
   // Need player structure
 
-  // timer
-  
   // Run game
-  run(1.0f);
+  run(1.f);
 
+  dummy();
 
- // destroy_word_list(&wordList);
+  destroy_word_list();
   screenDestroy();
 } 
