@@ -45,15 +45,6 @@ double timerTotalTime()
          ((tv_now.tv_usec - tv_begin.tv_usec) / MSEC_);
 }
 
-/*******************************************************************************
- * Helpers
- ******************************************************************************/
-
-static inline int setEven(int v)
-{
-  return ((v % 2) == 0) ? v : ++v;
-}
-
 /******************************************************************************
  * User Interface
  *****************************************************************************/
@@ -257,7 +248,7 @@ int validateWord(const char *str, int len)
 {
   int i;
   for (i = 0; i < MAX_SCREEN_WORDS; ++i) {
-    if (strncmp(wordList[i]->word, str, len) == 0) {
+    if (wordList[i]->size == len && strncmp(wordList[i]->word, str, len) == 0) {
       // We have a match.
       // Update the player score and remove word.
       clearWord(i);
@@ -381,7 +372,7 @@ static int writeInput(char c)
   }
   else if (c == CR && pos > 0) {
     // Clear the input area (assuming word is correct).
-    if (validateWord(input, pos - 1) == 1) {
+    if (validateWord(input, pos) == 1) {
       moveCursorTo(UI.inputY, UI.inputX);
       pos = 0;
       for (int i = 0; i < UI.inputS; ++i) {
@@ -442,11 +433,6 @@ void run(float multi)
   } 
 } 
 
-void dummy()
-{
-  //debug only
-}
-
 /*
 Options to add
     -d      Debug (turn on game timer/fps etc.)
@@ -473,8 +459,6 @@ void start_game()
 
   // Run game
   run(1.f);
-
-  dummy();
 
   destroy_word_list();
   screenDestroy();
