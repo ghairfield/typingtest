@@ -10,7 +10,8 @@ static bool initHappened = false; /* Has the user init'd the words? */
 
 static void init_words()
 {
-  for (int i = 0; i < MAX_WORDS; ++i) {
+  int i;
+  for (i = 0; i < MAX_WORDS; ++i) {
     wl[i].word = NULL;
     wl[i].size = 0;
     wl[i].x    = 0;

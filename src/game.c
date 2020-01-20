@@ -241,6 +241,33 @@ static int userInterfaceInit()
 #define MAX_SCREEN_WORDS 25 // TODO: 25 max words on screen?
 static struct Word * wordList[MAX_SCREEN_WORDS]; 
 
+static void clearWord(int index)
+{
+  /* A struct Word with the correct coordinates to delete */
+  enum COLORS co = getCurrentColor();
+  int i;
+  setColor(COLOR_WHT_ON_BLK);
+  moveCursorTo(wordList[index]->y, wordList[index]->x);
+  for (i = 0; i < wordList[index]->size; ++i)
+    writeCharacter(' ');
+  setColor(co);
+}
+
+int validateWord(const char *str, int len)
+{
+  int i;
+  for (i = 0; i < MAX_SCREEN_WORDS; ++i) {
+    if (strncmp(wordList[i]->word, str, len) == 0) {
+      // We have a match.
+      // Update the player score and remove word.
+      clearWord(i);
+      wordList[i]->onScreen = false;
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int placeNewWord(int index)
 {
   int r;
@@ -262,26 +289,6 @@ int placeNewWord(int index)
   }
 
   return 1;
-}
-
-
-/**
-    User Input area
-
-    Good practice to always reset the color when exiting a 
-    function? This increases the function calls, but also
-    makes for a hetrogenous screen call.
-*/
-static void clearWord(int index)
-{
-  /* A struct Word with the correct coordinates to delete */
-  enum COLORS co = getCurrentColor();
-  int i;
-  setColor(COLOR_WHT_ON_BLK);
-  moveCursorTo(wordList[index]->y, wordList[index]->x);
-  for (i = 0; i < wordList[index]->size; ++i)
-    writeCharacter(' ');
-  setColor(co);
 }
 
 static int writeWordsTick()
@@ -373,10 +380,8 @@ static int writeInput(char c)
     ret =  writeCharacter(c);
   }
   else if (c == CR && pos > 0) {
-    // TODO: Check if the word is correct.
-
     // Clear the input area (assuming word is correct).
-    if (1) {
+    if (validateWord(input, pos - 1) == 1) {
       moveCursorTo(UI.inputY, UI.inputX);
       pos = 0;
       for (int i = 0; i < UI.inputS; ++i) {
@@ -431,7 +436,7 @@ void run(float multi)
       timerReset();
     } 
     
-    if ((c = getInput()) == EXIT) cont = 0;
+    if ((c = getInput()) == ESC) cont = 0;
     writeInput(c); 
     writeScreen();
   } 
