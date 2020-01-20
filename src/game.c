@@ -317,6 +317,10 @@ static int writeWordsTick()
   return 0;
 }
 
+/******************************************************************************
+ * Writing to the screen
+ *****************************************************************************/
+
 static const char debugTickString[] = "%u";
 static int writeGameTick(unsigned int t)
 {
@@ -352,6 +356,7 @@ static int writeInput(char c)
 {  
   static int pos = 0; /* Position of next write */
   static char input[15] = { '\0' };
+  int i;
 
   // TODO: This should flash red. Need to add flash class.
   if (pos > UI.inputS) return 0;
@@ -368,14 +373,14 @@ static int writeInput(char c)
   else if (isalpha(c) && pos < UI.inputS) {
     input[pos] = c;
     moveCursorTo(UI.inputY, UI.inputX + pos++);
-    ret =  writeCharacter(c);
+    ret = writeCharacter(c);
   }
   else if (c == CR && pos > 0) {
-    // Clear the input area (assuming word is correct).
     if (validateWord(input, pos) == 1) {
+      // Clear the user input area
       moveCursorTo(UI.inputY, UI.inputX);
       pos = 0;
-      for (int i = 0; i < UI.inputS; ++i) {
+      for (i = 0; i < UI.inputS; ++i) {
         ret += writeCharacter(' ');
         input[i] = ' ';
       }
