@@ -226,6 +226,33 @@ static int userInterfaceInit()
 } 
 
 /******************************************************************************
+ * Player information
+ *****************************************************************************/
+struct Player 
+{
+  float score;
+  float error;
+  int   words;
+} Plyr;
+
+static void playerInit()
+{
+  Plyr.score = 0.0f;
+  Plyr.error = 0.0f;
+  Plyr.words = 0;
+
+  UI.scoreC = COLOR_GRN_ON_BLK;
+  UI.errorC = COLOR_RED_ON_BLK;
+}
+
+static void adjustPlayerScore(float s, float e, float w)
+{
+  Plyr.score += s;
+  Plyr.error += e;
+  Plyr.words += w;
+}
+
+/******************************************************************************
  * Words on screen
  *****************************************************************************/
 
@@ -253,9 +280,13 @@ int validateWord(const char *str, int len)
       // Update the player score and remove word.
       clearWord(i);
       wordList[i]->onScreen = false;
+      adjustPlayerScore(wordList[i]->size, 0.0, 1);
+
       return 1;
     }
   }
+
+  adjustPlayerScore(0.0, 3.0, 0);
   return 0;
 }
 
@@ -391,6 +422,29 @@ static int writeInput(char c)
   return ret;
 }
 
+static void writePlayerScore()
+{
+  char score[6], error[6];
+  enum COLORS co;
+  
+  co = getCurrentColor();
+  sprintf(score, "%4.1f", Plyr.score);
+  sprintf(error, "%4.1f", Plyr.error);
+
+  moveCursorTo(UI.scoreY, UI.scoreX);
+  setColor(UI.scoreC);
+  writeString(score, 6);
+
+  moveCursorTo(UI.errorY, UI.errorX);
+  setColor(UI.errorC);
+  writeString(error, 6);
+
+  setColor(co);
+}
+
+/******************************************************************************
+ * Main game loop
+ *****************************************************************************/
 /*
  * multi 
  *  Greater the number, faster the clock ticks. 
@@ -419,9 +473,7 @@ void run(float multi)
     if ((timediff * multi) > interval) {
       ++tick;
 
-      if (1) {
-        writeGameTick(tick);
-      }
+      if (1) writeGameTick(tick);
 
       if (rand() % 3 == 0 && wordCount < MAX_SCREEN_WORDS){
         ++wordCount;
@@ -433,8 +485,11 @@ void run(float multi)
     } 
     
     if ((c = getInput()) == ESC) cont = 0;
-    writeInput(c); 
-    writeScreen();
+    else {
+      writeInput(c); 
+      writePlayerScore();
+      writeScreen();
+    }
   } 
 } 
 
@@ -461,9 +516,10 @@ void start_game()
   for (; i < MAX_SCREEN_WORDS; ++i) wordList[i] = get_next_word();
  
   // Need player structure
+  playerInit();
 
   // Run game
-  run(1.f);
+  run(1.5f);
 
   destroy_word_list();
   screenDestroy();
