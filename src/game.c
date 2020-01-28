@@ -162,8 +162,9 @@ static void setScoreLarge()
 
   UI.timeY = 9;
   UI.timeX = UI.boardR + strlen("Time :") + 3;
+  UI.timeC = COLOR_WHT_ON_BLK;
   moveCursorTo(9, UI.boardR + 2);
-  setColor(COLOR_WHT_ON_BLK);
+  setColor(UI.timeC);
   for (unsigned int i = 0; i < strlen(" Time:"); ++i) {
     writeCharacter(time[i]);
   }  
@@ -190,13 +191,13 @@ static int userInterfaceInit()
 {
   int x, y;
   getMaxYX(&y, &x);
-  int center = x / 2;
+  int center = (x - 1) / 2;
   char borderChar = '|';
 
   UI.boardL = center - 40;
   UI.boardR = center + 40;
-  UI.boardT = 1;
-  UI.boardB = y;
+  UI.boardT = 0;
+  UI.boardB = y - 1;
   
   // We set the edge of the board in
   // | Score: XXXXX = 14 characters before the edge of the screen.
@@ -212,7 +213,7 @@ static int userInterfaceInit()
    * so we need at least 82 to write the sides. */
   if (x > 81) {
     setColor(COLOR_BLU_ON_BLK);
-    for (int i = 1; i <= UI.boardB; ++i) {
+    for (int i = 0; i < UI.boardB; ++i) {
       moveCursorTo(i, UI.boardL);
       writeCharacter(borderChar);
       moveCursorTo(i, UI.boardR);
@@ -230,15 +231,15 @@ static int userInterfaceInit()
  *****************************************************************************/
 struct Player 
 {
-  float score;
-  float error;
-  int   words;
+  int score;
+  int error;
+  int words;
 } Plyr;
 
 static void playerInit()
 {
-  Plyr.score = 0.0f;
-  Plyr.error = 0.0f;
+  Plyr.score = 0;
+  Plyr.error = 0;
   Plyr.words = 0;
 
   UI.scoreC = COLOR_GRN_ON_BLK;
@@ -262,13 +263,11 @@ static struct Word * wordList[MAX_SCREEN_WORDS];
 static void clearWord(int index)
 {
   /* A struct Word with the correct coordinates to delete */
-  enum COLORS co = getCurrentColor();
   int i;
   setColor(COLOR_WHT_ON_BLK);
   moveCursorTo(wordList[index]->y, wordList[index]->x);
   for (i = 0; i < wordList[index]->size; ++i)
     writeCharacter(' ');
-  setColor(co);
 }
 
 int validateWord(const char *str, int len)
@@ -282,12 +281,12 @@ int validateWord(const char *str, int len)
       wordList[i]->onScreen = false;
       adjustPlayerScore(wordList[i]->size, 0.0, 1);
 
-      return 1;
+      return 0;
     }
   }
 
   adjustPlayerScore(0.0, 3.0, 0);
-  return 0;
+  return 1;
 }
 
 int placeNewWord(int index)
@@ -315,7 +314,6 @@ int placeNewWord(int index)
 
 static int writeWordsTick()
 {
-  enum COLORS co = getCurrentColor();
   int i;
   float vertpos;
   
@@ -329,7 +327,7 @@ static int writeWordsTick()
       if (++wordList[i]->y > UI.boardB) {
         // TODO Error here.
         wordList[i]->onScreen = false;
-      };
+      }
 
       // Set color based on Y
       vertpos = (wordList[i]->y / (float)UI.boardB) * 100.0f;
@@ -343,8 +341,6 @@ static int writeWordsTick()
     }
   }
 
-  setColor(co);
-
   return 0;
 }
 
@@ -357,29 +353,25 @@ static int writeGameTick(unsigned int t)
 {
   int ret = 0;
   char str[15] = { '\0' };
-  enum COLORS co = getCurrentColor();
 
   setColor(UI.debugTickC);
   moveCursorTo(UI.debugTickY, UI.debugTickX);
   sprintf(str, debugTickString, t);
   ret = writeString(str, strlen(str));
 
-  setColor(co);
   return ret;
 }
 
 static int writePlayerTime()
 {
-  enum COLORS co = getCurrentColor();
-  setColor(UI.timeC);
   int ret = 0;
   char tm[7] = { '\0' };
 
   sprintf(tm, "%4.1f", timerTotalTime());
   moveCursorTo(UI.timeY, UI.timeX);
+  setColor(UI.timeC);
   ret = writeString(tm, strlen(tm));
 
-  setColor(co);
   return ret;
 }
 
@@ -388,12 +380,10 @@ static int writeInput(char c)
   static int pos = 0; /* Position of next write */
   static char input[15] = { '\0' };
   int i;
+  int ret = 0;        /* Return value */
 
   // TODO: This should flash red. Need to add flash class.
   if (pos > UI.inputS) return 0;
-  
-  int ret = 0;        /* Return value */
-  enum COLORS co = getCurrentColor();
 
   setColor(UI.inputC);
   if (c == DEL && pos > 0) {
@@ -407,29 +397,32 @@ static int writeInput(char c)
     ret = writeCharacter(c);
   }
   else if (c == CR && pos > 0) {
-    if (validateWord(input, pos) == 1) {
+    if (validateWord(input, pos) == 0) {
       // Clear the user input area
       moveCursorTo(UI.inputY, UI.inputX);
       pos = 0;
+      setColor(UI.inputC);
       for (i = 0; i < UI.inputS; ++i) {
         ret += writeCharacter(' ');
         input[i] = ' ';
       }
     }
+    else {
+      // TODO ???
+      // Do we need to clear the input after 
+      // enter is hit and the word is not correct?
+    }
   }
 
-  setColor(co);
   return ret;
 }
 
 static void writePlayerScore()
 {
   char score[6], error[6];
-  enum COLORS co;
-  
-  co = getCurrentColor();
-  sprintf(score, "%4.1f", Plyr.score);
-  sprintf(error, "%4.1f", Plyr.error);
+
+  sprintf(score, "%5d", Plyr.score);
+  sprintf(error, "%5d", Plyr.error);
 
   moveCursorTo(UI.scoreY, UI.scoreX);
   setColor(UI.scoreC);
@@ -438,8 +431,6 @@ static void writePlayerScore()
   moveCursorTo(UI.errorY, UI.errorX);
   setColor(UI.errorC);
   writeString(error, 6);
-
-  setColor(co);
 }
 
 /******************************************************************************
@@ -475,7 +466,7 @@ void run(float multi)
 
       if (1) writeGameTick(tick);
 
-      if (rand() % 3 == 0 && wordCount < MAX_SCREEN_WORDS){
+      if (rand() % 2 == 0 && wordCount < MAX_SCREEN_WORDS){
         ++wordCount;
         placeNewWord(wordIndex++);
       }

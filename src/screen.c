@@ -26,7 +26,9 @@ struct Display {
                                need to decrement each by 1 to write to
                                the framebuffer.*/
   int maxCols, maxRows;     /* Size of the terminal, X, Y */
-} d;
+};
+
+struct Display d;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Helpers
@@ -42,7 +44,6 @@ void moveCursorTo(int y, int x)
 
 void getMaxYX(int *y, int *x)
 {
-  extern struct Display d;
   *x = d.maxCols;
   *y = d.maxRows;
 }
@@ -129,6 +130,7 @@ static void writeColorProfile(enum COLORS c)
     case COLOR_WHT_ON_BLU: write(ttyout, "\033[37;44m", 8); break;
     case COLOR_WHT_ON_MAG: write(ttyout, "\033[37;45m", 8); break;
     case COLOR_WHT_ON_CYN: write(ttyout, "\033[37;46m", 8); break;
+    case COLOR_NONE: ; // Do nothing, supress compilier warning
   }; 
 } 
 
@@ -143,9 +145,9 @@ int writeCharacter(char content)
   if (d.writeX > 0 && d.writeX <= d.maxCols && 
       d.writeY > 0 && d.writeY <= d.maxRows) 
   {
-    d.fb[d.writeY - 1][d.writeX - 1].ch = content;
-    d.fb[d.writeY - 1][d.writeX - 1].co = d.curColor;
-    d.fb[d.writeY - 1][d.writeX - 1].dirty = true;
+    d.fb[d.writeY][d.writeX].ch = content;
+    d.fb[d.writeY][d.writeX].co = d.curColor;
+    d.fb[d.writeY][d.writeX].dirty = true;
 
     // XXX Overflow on or off???? Need to implement
     ++d.writeX;
@@ -174,7 +176,7 @@ void writeScreen()
   for (int y = 0; y < d.maxRows; ++y) {
     for (int x = 0; x < d.maxCols; ++x) {
       if (d.fb[y][x].dirty) {
-        sprintf(w, "\033[%d;%dH", y + 1, x + 1);
+        sprintf(w, "\033[%d;%dH", y, x);
         write(ttyout, w, strlen(w));  // Move the cursor to position
         
         if (curC != d.fb[y][x].co) {
@@ -224,8 +226,8 @@ void clearBuffer()
     }
   } 
   /* We move to the home position as does the VT100 clear screen */
-  d.writeX = 1;
-  d.writeY = 1;
+  d.writeX = 0;
+  d.writeY = 0;
 } 
 
 void bufferInit()
@@ -246,8 +248,8 @@ void bufferInit()
 
   clearBuffer();
   d.curColor = COLOR_WHT_ON_BLK;
-  d.writeX = 1;
-  d.writeY = 1;
+  d.writeX = 0;
+  d.writeY = 0;
 } 
 
 void bufferDestroy()

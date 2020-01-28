@@ -74,6 +74,8 @@ enum COLORS
   COLOR_WHT_ON_BLU = 0x7400,
   COLOR_WHT_ON_MAG = 0x7500,
   COLOR_WHT_ON_CYN = 0x7600,
+
+  COLOR_NONE
 }; 
 
 enum KEYMAP {
@@ -146,17 +148,17 @@ Clears the screen and moved the cursor to the home position.
 void clearScreen();
 
 /*
- * screenInit : Must be called first!
- *  Initializes the screen. Saves the current terminal enviroment
- *  and enters raw mode. This enables cursor and color control using
- *  VT100 codes. 
+screenInit : Must be called first!
+ Initializes the screen. Saves the current terminal enviroment
+ and enters raw mode. This enables cursor and color control using
+ VT100 codes. 
  */
 void screenInit();
 
 /*
- * screenDestroy
- *  Must be called once done with screen. Returns the terminal to its
- *  previous state, deletes all memory.
+screenDestroy
+ Must be called once done with screen. Returns the terminal to its
+ previous state, deletes all memory.
  */
 void screenDestroy();
 
