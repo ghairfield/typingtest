@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <ctype.h>
+#include <getopt.h>
 
 #define true 1
 #define false 0
@@ -74,10 +75,14 @@ struct UserInterface
   enum COLORS inputC; /* Color of area */
 
   /* Debug on */
-  char debug;
+  bool debug;
   int debugTickX, debugTickY;
   enum COLORS debugTickC;
-} UI; 
+}; 
+
+struct UserInterface UI = {0, 0, 0, 0, COLOR_NONE, 0, 0, COLOR_NONE, 0, 0, COLOR_NONE,
+                       0, 0, COLOR_NONE, 0, 0, 0, COLOR_NONE, false, 0, 0, COLOR_NONE };
+
 
 static void setScoreSmall()
 {
@@ -234,23 +239,25 @@ struct Player
   int score;
   int error;
   int words;
-} Plyr;
+
+  int  level;
+  char fileName[256];
+  bool errorOnIncomplete;
+};
+
+struct Player PLYR = {0, 0, 0, 0, { '\0' }, false };
 
 static void playerInit()
 {
-  Plyr.score = 0;
-  Plyr.error = 0;
-  Plyr.words = 0;
-
   UI.scoreC = COLOR_GRN_ON_BLK;
   UI.errorC = COLOR_RED_ON_BLK;
 }
 
 static void adjustPlayerScore(float s, float e, float w)
 {
-  Plyr.score += s;
-  Plyr.error += e;
-  Plyr.words += w;
+  PLYR.score += s;
+  PLYR.error += e;
+  PLYR.words += w;
 }
 
 /******************************************************************************
@@ -421,8 +428,8 @@ static void writePlayerScore()
 {
   char score[6], error[6];
 
-  sprintf(score, "%5d", Plyr.score);
-  sprintf(error, "%5d", Plyr.error);
+  sprintf(score, "%5d", PLYR.score);
+  sprintf(error, "%5d", PLYR.error);
 
   moveCursorTo(UI.scoreY, UI.scoreX);
   setColor(UI.scoreC);
@@ -464,7 +471,7 @@ void run(float multi)
     if ((timediff * multi) > interval) {
       ++tick;
 
-      if (1) writeGameTick(tick);
+      if (UI.debug) writeGameTick(tick);
 
       if (rand() % 2 == 0 && wordCount < MAX_SCREEN_WORDS){
         ++wordCount;
@@ -494,19 +501,63 @@ Options to add
     -fx:y   Force XxY layout
     -w      Personal word list?
 */
-void start_game()
+void parse_args(int argc, char* argv[])
 {
+  int c /*, opterr */;
+
+  while ((c = getopt(argc, argv, "dsl:w:f:")) != -1) {
+    switch (c) {
+      case 'd':
+        UI.debug = true;
+        break;
+      case 's':
+        break;
+      case 'l':
+        PLYR.level = atoi(optarg);
+        break;
+      case 'w':
+        if (strlen(optarg) > 255) fprintf(stderr, "The file name is to large.\n");
+        else strcpy(PLYR.fileName, optarg);
+        break;
+      case 'f':
+        // Not implemented 
+        break;
+      default:
+        fprintf(stderr, "spd [d,s,l,w,f]\n"
+                        "  -d\tdebug on\n"
+                        "  -s\tScoring\n"
+                        "  -l\t[1..20] Starting level\n"
+                        "  -w\tfile name of word list\n"
+                        "  -f\tX:Y of screen (not implemented.)\n\n");
+
+        exit(EXIT_FAILURE);
+        break;
+    }
+  }
+}
+
+void start_words(int argc, char* argv[])
+{
+  if (argc > 1) parse_args(argc, argv);
+
   screenInit();
   setCursorOff();
   clearScreen();
   userInterfaceInit();
 
   // Init word list
-  init_word_list("data/words.txt");
+  (PLYR.fileName[0]) ? init_word_list(PLYR.fileName) : init_word_list("data/words.txt");
+
   int i = 0;
   for (; i < MAX_SCREEN_WORDS; ++i) wordList[i] = get_next_word();
  
-  // Need player structure
+  if ( !wordList[0]) 
+  {
+    screenDestroy();
+    fprintf(stderr, "Could not get word list.\n");
+    exit(1);
+  }
+
   playerInit();
 
   // Run game

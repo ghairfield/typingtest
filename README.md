@@ -1,32 +1,23 @@
 # Typing test game
 
 A work in progress.
-> 14-Nov-2019: Doing some updates. Would like to make the words from top
-> to bottom like tetris. The speed will change over time. 
 
 Usage: spd 
 
-Keys:
-  ```
-  CTRL-C / Q: Quite the game  
-  Escape    : Go back a screen  
-  M         : Game settings (todo)
-  L         : Load a typing file (todo)  
-  S         : Start game  
-  ```
 Current todo list (in no order):
 - [X] Move speedtest.[c|h] to screen.[c|h]
 - [X] Python app to make the word list 
 - [X] Character encoding that encodes the character and color values
-- [ ] Word list. Easy, medium, hard
-- [ ] Refactor screen functions. Need special case for 80x20
-- [ ] Data structure for words on screen
+- [X] Word list.
+- [ ] Levels like tetris with more words faster
+- [ ] ~~Refactor screen functions. Need special case for 80x20~~
+- [X] Data structure for words on screen
 - [X] ~Way to update screen only when necessary~ Frame buffer
 - [X] Figure out location of game stats
 - [ ] Save game? High score?
 - [ ] Scale game if screen size changes
 - [ ] Change game speed depending on size
-- [ ] Colors should change back to default after writing.
+- [X] Colors should change back to default after writing.
 
 #### Reason
 I wanted to make a game using low level terminal functions. This program is done
@@ -49,4 +40,3 @@ of the character.
 
 #### Good resource
 [VT100 Term Codes](https://termsys.demon.co.uk/vtansi.htm)
-

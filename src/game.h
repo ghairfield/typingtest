@@ -9,6 +9,6 @@
  *  Begins the speedtest game. Control is taken over
  *  from here until the player quits.
  */
-void start_game();
+void start_words(int argc, char* argv[]);
 
 #endif /* Include guard */

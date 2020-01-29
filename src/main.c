@@ -5,9 +5,9 @@
 
 void test_displayScreenCoords();
 
-int main()
+int main(int argc, char* argv[])
 {
-  start_game(); 
+  start_words(argc, argv); 
 //  test_displayScreenCoords();
 
   return 0;
