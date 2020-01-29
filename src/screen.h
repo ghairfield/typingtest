@@ -94,27 +94,6 @@ enum KEYMAP {
   ARROW_R = 1003,
 };
 
-/**
-setCursorOn
-Turn on the cursor on the screen. This is really only good when
-not writing to the screen. If cursor is on when a write occurs,
-a blip will float around the screen. Good to keep off while the
-game is running.
-*/
-static inline void setCursorOn()
-{
-  write(STDOUT_FILENO, "\033[?25h", 6);
-} 
-
-/**
-setCursorOff
-Turns the cursor off.
-*/
-static inline void setCursorOff()
-{
-  write(STDOUT_FILENO, "\033[?25l", 6);
-} 
-
 /*
 getMaxYX
 Gets the size of the screen when init was called. 
@@ -190,5 +169,25 @@ returns Number of bytes written to screen.
  */
 int writeString(const char* content, unsigned int size);
 int writeCharacter(char content);
+
+/**
+setCursor[on|off]
+Turn on the cursor on the screen. This is really only good when
+not writing to the screen. If cursor is on when a write occurs,
+a blip will float around the screen. Good to keep off while the
+game is running.
+*/
+void setCursorOn();
+void setCursorOff();
+
+/**
+setTextWrap[on|off]
+  When continously writing to the screen, eventually x = Right side. Wrap
+  on resets X to 0 in this case. Wrap off does nothing, check write return
+  value for how many characters were written. If you happen to write past
+  the bottom of the screen, there is no hope.
+*/
+void setTextWrapOn();
+void setTextWrapOff();
 
 #endif /* Include guard */

@@ -186,7 +186,7 @@ static void setInputArea()
 {
   UI.inputX = UI.boardR + 2;   
   UI.inputY = 11;   
-  UI.inputS = 15;
+  UI.inputS = 20;
   UI.inputC = COLOR_WHT_ON_BLU;
 
   moveCursorTo(UI.inputY, UI.inputX);
@@ -402,7 +402,7 @@ static int writePlayerTime()
 static int writeInput(char c)
 {  
   static int pos = 0; /* Position of next write */
-  static char input[15] = { '\0' };
+  static char input[20] = { '\0' };
   int i;
   int ret = 0;        /* Return value */
 
@@ -539,7 +539,7 @@ void parse_args(int argc, char* argv[])
         fprintf(stderr, "spd [d,s,l,w,f]\n"
                         "  -d\tdebug on\n"
                         "  -s\tScoring\n"
-                        "  -l\t[1..20] Starting level\n"
+                        "  -l\t[1..n] Starting level\n"
                         "  -w\tfile name of word list\n"
                         "  -f\tX:Y of screen (not implemented.)\n\n");
 
@@ -559,7 +559,8 @@ void start_words(int argc, char* argv[])
   userInterfaceInit();
 
   // Init word list
-  (PLYR.fileName[0]) ? init_word_list(PLYR.fileName) : init_word_list("data/words0.txt");
+  (PLYR.fileName[0]) ? init_word_list(PLYR.fileName) : 
+                       init_word_list("data/words0.txt");
 
   int i = 0;
   for (; i < MAX_SCREEN_WORDS; ++i) wordList[i] = get_next_word();

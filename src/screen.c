@@ -7,6 +7,7 @@
 
 #define true 1
 #define false 0
+
 #define ttyin STDIN_FILENO
 #define ttyout STDOUT_FILENO
 
@@ -26,6 +27,7 @@ struct Display {
                                need to decrement each by 1 to write to
                                the framebuffer.*/
   int maxCols, maxRows;     /* Size of the terminal, X, Y */
+  char wrap;
 };
 
 struct Display d;
@@ -36,7 +38,7 @@ struct Display d;
 
 void moveCursorTo(int y, int x)
 {
-  if (y > 0 && y <= d.maxRows && x > 0 && x <= d.maxCols) {
+  if (y >= 0 && y < d.maxRows && x >= 0 && x < d.maxCols) {
     d.writeX = x;
     d.writeY = y;
   }
@@ -48,10 +50,6 @@ void getMaxYX(int *y, int *x)
   *y = d.maxRows;
 }
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Write
- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 void setColor(enum COLORS c)
 {
   d.curColor = c;
@@ -61,6 +59,30 @@ enum COLORS getCurrentColor()
 {
   return d.curColor;
 }
+
+void setCursorOn()
+{
+  write(STDOUT_FILENO, "\033[?25h", 6);
+} 
+
+void setCursorOff()
+{
+  write(STDOUT_FILENO, "\033[?25l", 6);
+} 
+
+void setTextWrapOn() 
+{
+  d.wrap = true;
+}
+
+void setTextWrapOff()
+{
+  d.wrap = false;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * Write
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 static void writeColorProfile(enum COLORS c)
 {
@@ -130,7 +152,7 @@ static void writeColorProfile(enum COLORS c)
     case COLOR_WHT_ON_BLU: write(ttyout, "\033[37;44m", 8); break;
     case COLOR_WHT_ON_MAG: write(ttyout, "\033[37;45m", 8); break;
     case COLOR_WHT_ON_CYN: write(ttyout, "\033[37;46m", 8); break;
-    case COLOR_NONE: ; // Do nothing, supress compilier warning
+    case COLOR_NONE: break; /* Do nothing, supress compilier warning */
   }; 
 } 
 
@@ -142,15 +164,20 @@ void clearScreen()
 
 int writeCharacter(char content)
 {
-  if (d.writeX > 0 && d.writeX <= d.maxCols && 
-      d.writeY > 0 && d.writeY <= d.maxRows) 
+  if (d.writeX >= 0 && d.writeX < d.maxCols && 
+      d.writeY >= 0 && d.writeY < d.maxRows) 
   {
     d.fb[d.writeY][d.writeX].ch = content;
     d.fb[d.writeY][d.writeX].co = d.curColor;
     d.fb[d.writeY][d.writeX].dirty = true;
 
-    // XXX Overflow on or off???? Need to implement
-    ++d.writeX;
+    // Overflow on or off
+    if (d.wrap && d.writeX >= d.maxRows) {
+      d.writeX = 0; 
+      ++d.writeY;
+    }
+    else 
+      ++d.writeX;
     return 1;
   }
   return 0;
@@ -176,7 +203,7 @@ void writeScreen()
   for (int y = 0; y < d.maxRows; ++y) {
     for (int x = 0; x < d.maxCols; ++x) {
       if (d.fb[y][x].dirty) {
-        sprintf(w, "\033[%d;%dH", y, x);
+        sprintf(w, "\033[%d;%dH", y + 1, x + 1);
         write(ttyout, w, strlen(w));  // Move the cursor to position
         
         if (curC != d.fb[y][x].co) {
@@ -232,32 +259,31 @@ void clearBuffer()
 
 void bufferInit()
 {
+  int i;
+
   d.fb = malloc(sizeof(struct FrameBuffer *) * d.maxRows);
   if ( !d.fb) {
-    perror("Could not allocated memory for frame buffer.\n");
+    fprintf(stderr, "Could not allocated memory for frame buffer column.\n");
     return;
   }
 
-  for (int i = 0; i < d.maxRows; ++i) {
+  for (i = 0; i < d.maxRows; ++i) {
     d.fb[i] = malloc(sizeof(struct FrameBuffer) * d.maxCols);
     if ( !d.fb[i]) {
-      perror("Could not allocated memory for a frame buffer.\n");
+      fprintf(stderr, "Could not allocated memory for frame buffer row.\n");
       return;
     }
   } 
 
-  clearBuffer();
-  d.curColor = COLOR_WHT_ON_BLK;
-  d.writeX = 0;
-  d.writeY = 0;
 } 
 
 void bufferDestroy()
 {
   if (d.fb) {
     for (int i = 0; i < d.maxRows; ++i) free(d.fb[i]);
+
     free(d.fb);   
-    //d.fb = NULL;
+    d.fb = NULL;
   } 
 } 
 
@@ -324,4 +350,10 @@ void screenInit()
 {
   rawMode();
   bufferInit();
+  clearBuffer();
+
+  d.curColor = COLOR_WHT_ON_BLK;
+  d.writeX = 0;
+  d.writeY = 0;
+  d.wrap   = false;
 }
