@@ -161,7 +161,7 @@ static void setScoreLarge()
   }  
 
   UI.timeY = 9;
-  UI.timeX = UI.boardR + strlen("Time :") + 3;
+  UI.timeX = UI.boardR + strlen("Time :") + 4;
   UI.timeC = COLOR_WHT_ON_BLK;
   moveCursorTo(9, UI.boardR + 2);
   setColor(UI.timeC);
