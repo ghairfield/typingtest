@@ -7,6 +7,9 @@
 #include <ctype.h>
 #include <getopt.h>
 
+typedef unsigned char u_char;
+#include <bsd/stdlib.h> // random
+
 #define true 1
 #define false 0
 
@@ -52,6 +55,7 @@ double timerTotalTime()
 
 struct UserInterface
 {
+  int screenX, screenY;
   /*
    * We store the bounds of the UI here. They currently
    * are constant values. If the screen size changes, 
@@ -80,8 +84,8 @@ struct UserInterface
   enum COLORS debugTickC;
 }; 
 
-struct UserInterface UI = {0, 0, 0, 0, COLOR_NONE, 0, 0, COLOR_NONE, 0, 0, COLOR_NONE,
-                       0, 0, COLOR_NONE, 0, 0, 0, COLOR_NONE, false, 0, 0, COLOR_NONE };
+struct UserInterface UI = {0, 0, 0, 0, 0, 0, COLOR_NONE, 0, 0, COLOR_NONE, 0, 0,
+    COLOR_NONE, 0, 0, COLOR_NONE, 0, 0, 0, COLOR_NONE, false, 0, 0, COLOR_NONE };
 
 
 static void setScoreSmall()
@@ -194,19 +198,18 @@ static void setInputArea()
 
 static int userInterfaceInit()
 {
-  int x, y;
-  getMaxYX(&y, &x);
-  int center = (x - 1) / 2;
+  getMaxYX(&UI.screenY, &UI.screenX);
+  int center = (UI.screenX - 1) / 2;
   char borderChar = '|';
 
   UI.boardL = center - 40;
   UI.boardR = center + 40;
   UI.boardT = 0;
-  UI.boardB = y - 1;
+  UI.boardB = UI.screenY;
   
   // We set the edge of the board in
   // | Score: XXXXX = 14 characters before the edge of the screen.
-  if (x < 94) {
+  if (UI.screenX < 94) {
     setScoreSmall();
   }
   else {
@@ -216,7 +219,7 @@ static int userInterfaceInit()
 
   /* We want the board to be at least 80. Adding sides adds 2,
    * so we need at least 82 to write the sides. */
-  if (x > 81) {
+  if (UI.screenX > 81) {
     setColor(COLOR_BLU_ON_BLK);
     for (int i = 0; i < UI.boardB; ++i) {
       moveCursorTo(i, UI.boardL);
@@ -240,12 +243,14 @@ struct Player
   int error;
   int words;
 
+  unsigned int newWordPlacement; /* Random values 0-99, 49 = ~50% */
+  float multi; /* Time multiplier, > 1 slower ticks, < 1 faster ticks */
   int  level;
   char fileName[256];
   bool errorOnIncomplete;
 };
 
-struct Player PLYR = {0, 0, 0, 0, { '\0' }, false };
+struct Player PLYR = {0, 0, 0, 50, 1.f, 0, { '\0' }, false };
 
 static void playerInit()
 {
@@ -264,7 +269,7 @@ static void adjustPlayerScore(float s, float e, float w)
  * Words on screen
  *****************************************************************************/
 
-#define MAX_SCREEN_WORDS 25 // TODO: 25 max words on screen?
+#define MAX_SCREEN_WORDS 75 
 static struct Word * wordList[MAX_SCREEN_WORDS]; 
 
 static void clearWord(int index)
@@ -286,7 +291,9 @@ int validateWord(const char *str, int len)
       // Update the player score and remove word.
       clearWord(i);
       wordList[i]->onScreen = false;
+      wordList[i]->complete = true;
       adjustPlayerScore(wordList[i]->size, 0.0, 1);
+      wordList[i] = get_next_word();
 
       return 0;
     }
@@ -296,9 +303,16 @@ int validateWord(const char *str, int len)
   return 1;
 }
 
-int placeNewWord(int index)
+int placeNewWord()
 {
-  int r;
+  int r, index;
+  for (index = 0; index < MAX_SCREEN_WORDS; ++index) {
+    if ( !wordList[index]->onScreen && !wordList[index]->complete)
+      break;
+  }
+
+  if (index == MAX_SCREEN_WORDS) return 0;
+
   wordList[index]->y = 0;
 
   while (1) {
@@ -306,11 +320,9 @@ int placeNewWord(int index)
         1) An x position between left boarder and right boarder minux word size.
         2) The x position is not taken by a "close" word. TODO 
     */
-    r = rand() % (UI.boardR);
+    r = arc4random_uniform(UI.boardR);
     if (r > UI.boardL && r < UI.boardR - wordList[index]->size) {
-      // Set the values
       wordList[index]->x = r;
-      wordList[index]->seen = true;
       wordList[index]->onScreen = true;
       break;
     }
@@ -333,7 +345,10 @@ static int writeWordsTick()
 
       if (++wordList[i]->y > UI.boardB) {
         // TODO Error here.
+        --wordList[i]->y;
+        clearWord(i);
         wordList[i]->onScreen = false;
+        wordList[i] = get_next_word();
       }
 
       // Set color based on Y
@@ -355,18 +370,20 @@ static int writeWordsTick()
  * Writing to the screen
  *****************************************************************************/
 
-static const char debugTickString[] = "%u";
-static int writeGameTick(unsigned int t)
+static const char debugTickStringL1[] = "(%d,%d) Tick:%u";
+static const char debugTickStringL2[] = "M:%1.3f NW:%d";
+
+static void writeGameTick(unsigned int t)
 {
-  int ret = 0;
-  char str[15] = { '\0' };
+  char str[2][22] = { { '\0' }, { '\0' } };
 
   setColor(UI.debugTickC);
   moveCursorTo(UI.debugTickY, UI.debugTickX);
-  sprintf(str, debugTickString, t);
-  ret = writeString(str, strlen(str));
-
-  return ret;
+  sprintf(str[0], debugTickStringL1, UI.screenX, UI.screenY, t);
+  writeString(str[0], strlen(str[0]));
+  moveCursorTo(UI.debugTickY + 1, UI.debugTickX);
+  sprintf(str[1], debugTickStringL2, PLYR.multi, PLYR.newWordPlacement);
+  writeString(str[1], strlen(str[1]));
 }
 
 static int writePlayerTime()
@@ -448,18 +465,15 @@ static void writePlayerScore()
  *  Greater the number, faster the clock ticks. 
  *  multi = 1.0 which is 1 second
  */
-void run(float multi)
+void run()
 {
   setColor(COLOR_WHT_ON_BLK);
   writeScreen();
-  unsigned int tick = 0;
-  int wordIndex = 0, wordCount = 0;
+  unsigned int tick = 0; 
   double timediff = 0.0;
   float interval = 1.f;
-  char cont = 1;
+  bool cont = true;
   timerInit();
-
-  srand(time(NULL));
 
   while (cont) {
     char c = 0;
@@ -468,21 +482,20 @@ void run(float multi)
     if (1) writePlayerTime();
     
     // Game ticks here
-    if ((timediff * multi) > interval) {
+    if ((timediff * PLYR.multi) > interval) {
       ++tick;
 
       if (UI.debug) writeGameTick(tick);
 
-      if (rand() % 2 == 0 && wordCount < MAX_SCREEN_WORDS){
-        ++wordCount;
-        placeNewWord(wordIndex++);
+      if (arc4random_uniform(100) < PLYR.newWordPlacement) { 
+        placeNewWord();
       }
 
       writeWordsTick();
       timerReset();
     } 
     
-    if ((c = getInput()) == ESC) cont = 0;
+    if ((c = getInput()) == ESC) cont = false;
     else {
       writeInput(c); 
       writePlayerScore();
@@ -546,7 +559,7 @@ void start_words(int argc, char* argv[])
   userInterfaceInit();
 
   // Init word list
-  (PLYR.fileName[0]) ? init_word_list(PLYR.fileName) : init_word_list("data/words.txt");
+  (PLYR.fileName[0]) ? init_word_list(PLYR.fileName) : init_word_list("data/words0.txt");
 
   int i = 0;
   for (; i < MAX_SCREEN_WORDS; ++i) wordList[i] = get_next_word();
@@ -561,7 +574,7 @@ void start_words(int argc, char* argv[])
   playerInit();
 
   // Run game
-  run(1.5f);
+  run();
 
   destroy_word_list();
   screenDestroy();

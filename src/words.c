@@ -4,8 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+typedef unsigned char u_char; // See Debian bug #719640, not fixed?
+#include <bsd/stdlib.h>
+
 static struct Word wl[MAX_WORDS];
-static unsigned int currentIndex = 0; /* Index of next word */
+static unsigned int wordCount = 0; 
+static unsigned int wordTotal = 0;
 static bool initHappened = false; /* Has the user init'd the words? */
 
 static void init_words()
@@ -17,6 +22,7 @@ static void init_words()
     wl[i].x    = 0;
     wl[i].y    = 0;
     wl[i].seen = false;
+    wl[i].complete = false;
     wl[i].onScreen = false;
   }
 }
@@ -73,15 +79,27 @@ int init_word_list(const char *fn)
     return 0;
   }
 
-  int ct = get_words(fp);
-  if (ct > 0) initHappened = true;
+  wordTotal = get_words(fp);
+  if (wordTotal > 0) initHappened = true;
   
   fclose(fp);
-  return ct;
+  return wordTotal;
 }
 
 struct Word * get_next_word()
 {
-  if (initHappened && wl[currentIndex].word) return &wl[currentIndex++];
+  bool found = false;
+  u_int32_t pos = 0;
+
+  if (initHappened && wordCount < wordTotal) {
+    while ( !found) {
+      pos = arc4random_uniform(wordTotal);
+      if ( !wl[pos].seen) found = true;
+    }
+
+    ++wordCount;
+    wl[pos].seen = true;
+    return &wl[pos];
+  }
   else return NULL;
 }

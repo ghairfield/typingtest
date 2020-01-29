@@ -44,4 +44,5 @@
 
 # Project
 tags
-data/words.txt
+data/words*.txt
+spd

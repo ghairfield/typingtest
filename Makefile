@@ -5,7 +5,7 @@ vpath %.h src
 vpath %.py data
 
 spd : main.o game.o screen.o words.o
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ -lbsd
 
 main.o : main.c game.h
 	$(CC) $(CFLAGS) -c -o $@ $<
