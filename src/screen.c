@@ -297,8 +297,9 @@ void screenDestroy()
 {
   /* Flush the terminal upon exit, and reset the original terminal settings. */
   bufferDestroy();
-  write(ttyout, "\033[2J", 4);
-  write(ttyout, "\033[37;40m", 8);
+  //write(ttyout, "\033[2J", 4);
+  write(ttyout, "\033[37;40;0m", 10); /* Set terminal to black on white, reset
+                                         all attributes (underline, hightlight..) */
   tcsetattr(ttyin, TCSAFLUSH, &orig_term);
 }
 
