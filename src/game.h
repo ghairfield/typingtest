@@ -2,7 +2,7 @@
 #define GAME_H_
 
 #include <stdint.h>
-#include "screen.h"
+#include "disp/screen.h"
 
 /*
  * start_game

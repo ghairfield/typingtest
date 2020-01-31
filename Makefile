@@ -10,10 +10,10 @@ spd : main.o game.o screen.o words.o
 main.o : main.c game.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-game.o : game.c game.h screen.h
+game.o : game.c game.h disp/screen.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-screen.o : screen.c screen.h
+screen.o : disp/screen.c disp/screen.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 words.o : words.c words.h

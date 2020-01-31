@@ -1,5 +1,5 @@
 #include "game.h"
-#include "screen.h"
+#include "disp/screen.h"
 
 #include <string.h>
 
