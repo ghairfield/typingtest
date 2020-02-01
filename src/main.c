@@ -8,9 +8,9 @@ void test_menu();
 
 int main(int argc, char* argv[])
 {
- // start_words(argc, argv); 
+ start_words(argc, argv); 
 //  test_displayScreenCoords();
-  test_menu();
+//  test_menu();
 
   return 0;
 }
@@ -62,7 +62,7 @@ void test_displayScreenCoords()
 void test_menu() 
 {
   screenInit(); 
-  int x, y, sz;
+  int x, y;
   getMaxYX(&y, &x);
   setCursorOff();
   clearScreen();

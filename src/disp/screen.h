@@ -149,7 +149,7 @@ Get the next input from the user. This function does not block as
 
 returns Character user enterd, some value in enum KEYMAP or nothing.
  */
-char getInput();
+int getInput();
 
 /**
 setColor

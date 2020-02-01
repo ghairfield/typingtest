@@ -242,15 +242,18 @@ struct Player
   int score;
   int error;
   int words;
-
-  unsigned int newWordPlacement; /* Random values 0-99, 49 = ~50% */
-  float multi; /* Time multiplier, > 1 slower ticks, < 1 faster ticks */
-  int  level;
-  char fileName[256];
+  unsigned int nw;/* new word speed. Value 0..100. 0 being no new words 
+                     appearing, 100 is a new word every game tick. */
+  int l;          /* Player level. Not implemented */
+  int r;          /* Number of correct words in a row 1..4 */  
+  int lw;         /* Lost word. If a word runs off the bottom of the screen. */
+  float spd;      /* Time multiplier. Value 0.0 .. inf. 0.0 being no game
+                     game ticks, inf 4 being 1 tick per 1/4 sec. */
+  char fn[256];   /* File name */
   bool errorOnIncomplete;
 };
 
-struct Player PLYR = {0, 0, 0, 50, 1.f, 0, { '\0' }, false };
+struct Player PLYR = {0, 0, 0, 50, 0, 0, 0, 1.f, { '\0' }, false };
 
 static void playerInit()
 {
@@ -289,17 +292,18 @@ int validateWord(const char *str, int len)
     if (wordList[i]->size == len && strncmp(wordList[i]->word, str, len) == 0) {
       // We have a match.
       // Update the player score and remove word.
+      if (PLYR.r < 4) ++PLYR.r;
       clearWord(i);
       wordList[i]->onScreen = false;
       wordList[i]->complete = true;
-      adjustPlayerScore(wordList[i]->size, 0.0, 1);
+      adjustPlayerScore(wordList[i]->size * PLYR.r, 0.0, 1);
       wordList[i] = get_next_word();
 
       return 0;
     }
   }
 
-  adjustPlayerScore(0.0, 3.0, 0);
+  adjustPlayerScore(0.0, 3.0 + (PLYR.lw * 1.3), 0);
   return 1;
 }
 
@@ -343,21 +347,21 @@ static int writeWordsTick()
     if (wordList[i]->onScreen) {
       clearWord(i);
 
-      if (++wordList[i]->y > UI.boardB) {
-        // TODO Error here.
-        --wordList[i]->y;
-        clearWord(i);
+      /* Remove a word if it hits the bottom of the screen */
+      if (++wordList[i]->y > UI.boardB - 1) {
+        PLYR.error += wordList[i]->size;
+        PLYR.r = 0;
+        ++PLYR.lw;
         wordList[i]->onScreen = false;
         wordList[i] = get_next_word();
       }
 
-      // Set color based on Y
+      /* Set color based on Y position */
       vertpos = (wordList[i]->y / (float)UI.boardB) * 100.0f;
-      if (vertpos > 80.0) setColor(COLOR_RED_ON_BLK);
-      else if (vertpos > 50.0) setColor(COLOR_YLW_ON_BLK);
+      if (vertpos > 80.f) setColor(COLOR_RED_ON_BLK);
+      else if (vertpos > 50.f) setColor(COLOR_YLW_ON_BLK);
       else setColor(COLOR_WHT_ON_BLK);
 
-      // Write word
       moveCursorTo(wordList[i]->y, wordList[i]->x);
       writeString(wordList[i]->word, wordList[i]->size);
     }
@@ -382,11 +386,11 @@ static void writeGameTick(unsigned int t)
   sprintf(str[0], debugTickStringL1, UI.screenX, UI.screenY, t);
   writeString(str[0], strlen(str[0]));
   moveCursorTo(UI.debugTickY + 1, UI.debugTickX);
-  sprintf(str[1], debugTickStringL2, PLYR.multi, PLYR.newWordPlacement);
+  sprintf(str[1], debugTickStringL2, PLYR.spd, PLYR.nw);
   writeString(str[1], strlen(str[1]));
 }
 
-static int writePlayerTime()
+static int writeTime()
 {
   int ret = 0;
   char tm[7] = { '\0' };
@@ -432,29 +436,27 @@ static int writeInput(char c)
       }
     }
     else {
-      // TODO ???
-      // Do we need to clear the input after 
-      // enter is hit and the word is not correct?
+      PLYR.r = 0;
     }
   }
 
   return ret;
 }
 
-static void writePlayerScore()
+static void writeScore()
 {
-  char score[6], error[6];
+  char score[8], error[8];
 
-  sprintf(score, "%5d", PLYR.score);
-  sprintf(error, "%5d", PLYR.error);
+  sprintf(score, "%5d|%d", PLYR.score, PLYR.r);
+  sprintf(error, "%5d|%d", PLYR.error, PLYR.lw);
 
   moveCursorTo(UI.scoreY, UI.scoreX);
   setColor(UI.scoreC);
-  writeString(score, 6);
+  writeString(score, 7);
 
   moveCursorTo(UI.errorY, UI.errorX);
   setColor(UI.errorC);
-  writeString(error, 6);
+  writeString(error, 8);
 }
 
 /******************************************************************************
@@ -470,24 +472,24 @@ void run()
   setColor(COLOR_WHT_ON_BLK);
   writeScreen();
   unsigned int tick = 0; 
+  int c;
   double timediff = 0.0;
   float interval = 1.f;
   bool cont = true;
   timerInit();
 
   while (cont) {
-    char c = 0;
     timediff = timerDiff();
 
-    if (1) writePlayerTime();
+    if (1) writeTime();
     
     // Game ticks here
-    if ((timediff * PLYR.multi) > interval) {
+    if ((timediff * PLYR.spd) > interval) {
       ++tick;
 
       if (UI.debug) writeGameTick(tick);
 
-      if (arc4random_uniform(100) < PLYR.newWordPlacement) { 
+      if (arc4random_uniform(100) < PLYR.nw) { 
         placeNewWord();
       }
 
@@ -495,24 +497,29 @@ void run()
       timerReset();
     } 
     
-    if ((c = getInput()) == ESC) cont = false;
-    else {
-      writeInput(c); 
-      writePlayerScore();
-      writeScreen();
+    c = getInput();
+    switch (c) {
+      case ESC:     cont = false;     break;
+          if (UI.debug) {
+      case ARROW_U: PLYR.spd += 0.05; break;
+      case ARROW_D: PLYR.spd -= 0.05; break;
+      case ARROW_R: PLYR.nw  += 5;    break;
+      case ARROW_L: PLYR.nw  -= 5;    break;
+          }
+      default:      writeInput(c);
     }
+
+    writeScore();
+    writeScreen();
   } 
 } 
 
 /*
-Options to add
-    -d      Debug (turn on game timer/fps etc.)
+Options to add ??
     -s      Scoring. If supplied, words that go off screen
             are do not end the game.
-    -lX     Level provided by X
-    -f      Force 80x20 layout
-    -fx:y   Force XxY layout
-    -w      Personal word list?
+    -f      Force 80x20 layout ????
+    -fx:y   Force XxY layout ????
 */
 void parse_args(int argc, char* argv[])
 {
@@ -524,22 +531,23 @@ void parse_args(int argc, char* argv[])
         UI.debug = true;
         break;
       case 's':
+        // not implemented
         break;
       case 'l':
-        PLYR.level = atoi(optarg);
+        PLYR.l = atoi(optarg);
         break;
       case 'w':
         if (strlen(optarg) > 255) fprintf(stderr, "The file name is to large.\n");
-        else strcpy(PLYR.fileName, optarg);
+        else strcpy(PLYR.fn, optarg);
         break;
       case 'f':
         // Not implemented 
         break;
       default:
         fprintf(stderr, "spd [d,s,l,w,f]\n"
-                        "  -d\tdebug on\n"
-                        "  -s\tScoring\n"
-                        "  -l\t[1..n] Starting level\n"
+                        "  -d\tdebug on. Also use arrow keys to control game speed.\n"
+                        "  -s\tScoring (not implemented)\n"
+                        "  -l\t[1..n] Starting level (not implemented)\n"
                         "  -w\tfile name of word list\n"
                         "  -f\tX:Y of screen (not implemented.)\n\n");
 
@@ -551,6 +559,7 @@ void parse_args(int argc, char* argv[])
 
 void start_words(int argc, char* argv[])
 {
+  int i;
   if (argc > 1) parse_args(argc, argv);
 
   screenInit();
@@ -559,12 +568,8 @@ void start_words(int argc, char* argv[])
   userInterfaceInit();
 
   // Init word list
-  (PLYR.fileName[0]) ? init_word_list(PLYR.fileName) : 
-                       init_word_list("data/words0.txt");
-
-  int i = 0;
-  for (; i < MAX_SCREEN_WORDS; ++i) wordList[i] = get_next_word();
- 
+  (PLYR.fn[0]) ? init_word_list(PLYR.fn) : init_word_list("data/words0.txt"); 
+  for (i = 0; i < MAX_SCREEN_WORDS; ++i) wordList[i] = get_next_word();
   if ( !wordList[0]) 
   {
     screenDestroy();

@@ -223,18 +223,26 @@ void writeScreen()
  * Input handling
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-char getInput()
+int getInput()
 {
-  char c_in = -1;
+  char c_in = -1, esc[2];
   int bytes;
 
-  /* We ignore most input that doesn't apply to this program. */
   bytes = read(ttyin, &c_in, 1);
-  if (bytes == -1) return EXIT; /* Failure */
-
-  if (c_in == CTRL_C || c_in == CTRL_Q) return EXIT; /* User quit */
-
-  if (c_in == DEL || c_in == BACK) return DEL; /* Backspace */
+  if (bytes == -1) exit(1); /* Failure */
+  if (c_in == ESC) {
+    /* Try and read an escape sequence */
+    if (read(ttyin, esc, 1) == 0) return ESC;
+    if (esc[0] == '[') {
+      if (read(ttyin, esc + 1, 1) == 0) return ESC;
+      switch (esc[1]) {
+        case 'A': return ARROW_U;
+        case 'B': return ARROW_D;
+        case 'C': return ARROW_R;
+        case 'D': return ARROW_L;
+      }
+    }
+  }
 
   return c_in; /* Regular character */
 }
